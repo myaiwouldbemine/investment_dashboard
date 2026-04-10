@@ -3,6 +3,7 @@ import plotly.express as px
 import streamlit as st
 
 from config.settings import PROCESSED_DIR
+from src.utils.dashboard_access import enforce_dashboard_access
 
 CASHFLOW_TYPE_LABELS = {
     'coupon': '配息',
@@ -59,6 +60,7 @@ def weight_bar(frame: pd.DataFrame, x: str, y: str, title: str, color_scale: str
 
 
 st.set_page_config(layout='wide')
+enforce_dashboard_access()
 st.markdown("""
 <style>
 .main {background: linear-gradient(180deg, #f7f2eb 0%, #fcfaf7 100%);}

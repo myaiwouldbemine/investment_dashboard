@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from config.settings import APP_NAME, PROCESSED_DIR
+from src.utils.dashboard_access import enforce_dashboard_access
 
 
 def load_frame(relative_path: str) -> pd.DataFrame:
@@ -65,6 +66,7 @@ def safe_page_link(page: str, label: str, fallback: str) -> None:
 
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout='wide')
+    enforce_dashboard_access()
     st.markdown("""
     <style>
     .main {background: linear-gradient(180deg, #0f1319 0%, #171d26 100%);} 

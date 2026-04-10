@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from config.settings import PROCESSED_DIR
+from src.utils.dashboard_access import enforce_dashboard_access
 
 
 def fmt_amount(value):
@@ -191,8 +192,9 @@ def pnl_heatmap(frame: pd.DataFrame):
     return chart
 
 
-card_style()
 st.set_page_config(layout='wide')
+enforce_dashboard_access()
+card_style()
 st.title('股票部位分析')
 st.caption('資料來源：Stocks.xlsx')
 
