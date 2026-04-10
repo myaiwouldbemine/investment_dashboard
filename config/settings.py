@@ -18,3 +18,11 @@ DEPOSIT_FX_FALLBACK = 7.3
 FCN_SOURCE_FILE = '/mnt/d/01.Copy_Learning/AI_OepnClaw_Codex_Project/Dashboard Dev_Claude/FCNs_20260409.xlsx'
 FCN_SHEETS = ['Database_FCN List', 'Database_FCN']
 
+# Streamlit Cloud entry point — when Streamlit runs this file directly, delegate to app.py.
+# Guard prevents circular import when app.py imports from this module.
+import sys as _sys
+if "app" not in _sys.modules:
+    _sys.path.insert(0, str(PROJECT_ROOT))
+    from app import main as _main
+    _main()
+
