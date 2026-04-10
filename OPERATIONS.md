@@ -209,3 +209,43 @@ Steps each update cycle:
 Notes:
 - Fixed naming avoids path edits and reduces operator errors.
 - If a source file is missing, that pipeline segment is skipped by design.
+
+## 9) End-to-End Update Flow (Windows Downloads -> Local -> Cloud)
+
+1. Put 3 source files into Windows Downloads:
+- `C:\Users\ericarthuang\Downloads\bond_source.xlsx`
+- `C:\Users\ericarthuang\Downloads\stock_source.xlsx`
+- `C:\Users\ericarthuang\Downloads\fcn_source.xlsx`
+
+2. In Ubuntu/WSL, copy files into dashboard inbox:
+```bash
+cp "/mnt/c/Users/ericarthuang/Downloads/bond_source.xlsx" /home/ericarthuang/.openclaw/workspace/investment_dashboard/data/inbox/
+cp "/mnt/c/Users/ericarthuang/Downloads/stock_source.xlsx" /home/ericarthuang/.openclaw/workspace/investment_dashboard/data/inbox/
+cp "/mnt/c/Users/ericarthuang/Downloads/fcn_source.xlsx" /home/ericarthuang/.openclaw/workspace/investment_dashboard/data/inbox/
+```
+
+3. Verify upload result:
+```bash
+ls -la /home/ericarthuang/.openclaw/workspace/investment_dashboard/data/inbox
+```
+
+4. Run pipeline refresh:
+```bash
+cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
+. .venv/bin/activate
+python run_pipeline.py
+```
+
+5. If local-only update is enough, stop here.
+
+6. If cloud sync is required, push processed outputs:
+```bash
+cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
+git add data/processed/**/latest.parquet
+git commit -m "Refresh dashboard data from latest source files"
+git pull --rebase origin main
+git push origin main
+```
+
+7. Wait for Streamlit Cloud auto-redeploy (about 1-3 minutes), then verify:
+- `https://myai-investment-dashboard.streamlit.app/`
