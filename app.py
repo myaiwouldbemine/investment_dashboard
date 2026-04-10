@@ -56,6 +56,13 @@ def entry_card(title: str, subtitle: str, desc: str, accent: str, summary: str) 
     """
 
 
+def safe_page_link(page: str, label: str, fallback: str) -> None:
+    """Render page link when available; degrade gracefully when route metadata is missing."""
+    try:
+        st.page_link(page, label=label)
+    except KeyError:
+        st.caption(fallback)
+
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, layout='wide')
     st.markdown("""
@@ -182,13 +189,13 @@ def main() -> None:
     q1, q2, q3 = st.columns(3)
     with q1:
         st.markdown(entry_card('Bonds', 'Fixed Income', '查看債券部位、交易對象、類型與到期年分析。', '#355c7d', bond_summary), unsafe_allow_html=True)
-        st.page_link('pages/3_Bond_Portfolio.py', label='前往債券分析')
+        safe_page_link('pages/3_Bond_Portfolio.py', '前往債券分析', '請由左側分頁進入「3_Bond_Portfolio」。')
     with q2:
         st.markdown(entry_card('Stocks', 'Equity', '查看日本股票持股、個股損益、報酬率與市值。', '#4f6d4a', stock_summary), unsafe_allow_html=True)
-        st.page_link('pages/4_Stock_Portfolio.py', label='前往股票分析')
+        safe_page_link('pages/4_Stock_Portfolio.py', '前往股票分析', '請由左側分頁進入「4_Stock_Portfolio」。')
     with q3:
         st.markdown(entry_card('FCN', 'Structured Product', '查看 FCN 投資金額、利息分析、占比與未到期明細。', '#8a5a44', fcn_summary_text), unsafe_allow_html=True)
-        st.page_link('pages/6_FCN_Portfolio.py', label='前往 FCN 分析')
+        safe_page_link('pages/6_FCN_Portfolio.py', '前往 FCN 分析', '請由左側分頁進入「6_FCN_Portfolio」。')
 
     st.subheader('摘要總覽')
 
@@ -229,3 +236,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
+
