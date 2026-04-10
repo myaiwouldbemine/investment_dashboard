@@ -249,3 +249,10 @@ git push origin main
 
 7. Wait for Streamlit Cloud auto-redeploy (about 1-3 minutes), then verify:
 - `https://myai-investment-dashboard.streamlit.app/`
+
+### FCN workbook requirement (simplified)
+For `fcn_source.xlsx`, only `Database_FCN List` is required by pipeline.
+These sheets can be removed without breaking ingestion:
+- `Database_FCN`
+- `FCN Analysis 1`
+- `FCN Analysis 2`

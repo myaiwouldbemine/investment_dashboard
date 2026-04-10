@@ -14,7 +14,7 @@ BOND_SHEETS = ["Database_Bonds", "Database_Payback"]
 STOCK_SOURCE_FILE = str(INBOX_DIR / "stock_source.xlsx")
 STOCK_SHEETS = ["Database_Stock"]
 FCN_SOURCE_FILE = str(INBOX_DIR / "fcn_source.xlsx")
-FCN_SHEETS = ["Database_FCN List", "Database_FCN"]
+FCN_SHEETS = ["Database_FCN List"]
 
 # Deposit source remains unchanged for now
 STOCK_HISTORY_START_DATE = "2025-12-30"
@@ -32,3 +32,5 @@ if __name__ == "__main__":
     from app import main as _main
 
     _main()
+
+
