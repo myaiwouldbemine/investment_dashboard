@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+.streamlit/secrets.toml
+data/raw/
+data/exports/
+data/processed/**
+!data/processed/
+!data/processed/**/
+!data/processed/**/latest.parquet
+*.log
+tmp/

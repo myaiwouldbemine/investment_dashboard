@@ -1,0 +1,22 @@
+[Unit]
+Description=Investment Dashboard API
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=ericarthuang
+WorkingDirectory=/home/ericarthuang/.openclaw/workspace/investment_dashboard
+ExecStart=/home/ericarthuang/.openclaw/workspace/investment_dashboard/deploy/scripts/run_api.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGINT
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
