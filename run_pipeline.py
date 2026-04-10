@@ -13,6 +13,7 @@ from config.settings import (
     DEPOSIT_FX_FALLBACK,
     DEPOSIT_LOOKUP_SHEETS,
     DEPOSIT_SOURCE_FILE,
+    INBOX_DIR,
     PROCESSED_DIR,
     RAW_DIR,
     STOCK_SHEETS,
@@ -43,6 +44,7 @@ def log(message: str) -> None:
 def ensure_dirs() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    INBOX_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def save_frame(frame: pd.DataFrame, target: Path, label: str) -> None:
@@ -190,5 +192,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 

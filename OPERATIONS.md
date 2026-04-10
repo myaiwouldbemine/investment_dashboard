@@ -186,3 +186,26 @@ When all 5 pass, issue is truly closed.
 - Symptom: Local app works, cloud still fails.
 - Reality: Local and cloud are separate environments/commits/settings.
 - Fix: Verify commit is pushed, cloud redeploy finished, and Main file path is correct.
+
+## 8) Periodic File Upload SOP (3 Dashboard Sources)
+
+Use this simplified workflow to refresh dashboard source files without changing code paths.
+
+Upload folder:
+- `data/inbox`
+
+Required fixed filenames:
+- `bond_source.xlsx`
+- `stock_source.xlsx`
+- `fcn_source.xlsx`
+
+Steps each update cycle:
+1. Put your latest 3 source files into `data/inbox`.
+2. Rename or overwrite them to the fixed names above.
+3. Run pipeline refresh:
+   - `python run_pipeline.py`
+4. Open dashboard and validate key summary numbers.
+
+Notes:
+- Fixed naming avoids path edits and reduces operator errors.
+- If a source file is missing, that pipeline segment is skipped by design.
