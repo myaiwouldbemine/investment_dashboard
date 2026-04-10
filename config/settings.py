@@ -19,10 +19,13 @@ FCN_SOURCE_FILE = '/mnt/d/01.Copy_Learning/AI_OepnClaw_Codex_Project/Dashboard D
 FCN_SHEETS = ['Database_FCN List', 'Database_FCN']
 
 # Streamlit Cloud entry point — when Streamlit runs this file directly, delegate to app.py.
-# Guard prevents circular import when app.py imports from this module.
-import sys as _sys
-if "app" not in _sys.modules:
+# Use __main__ guard so normal imports from app.py do not recurse, and Cloud entry stays stable.
+if __name__ == "__main__":
+    import sys as _sys
+
     _sys.path.insert(0, str(PROJECT_ROOT))
     from app import main as _main
+
     _main()
+
 
