@@ -19,3 +19,4 @@ data/*.parquet
 data/*.xlsx
 data/*.xls
 data/*.csv
+.env.monitor
