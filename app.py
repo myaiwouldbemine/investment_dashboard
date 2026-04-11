@@ -50,6 +50,14 @@ def fetch_api_section(base_url: str, endpoint: str) -> dict[str, object] | None:
 
 
 def section_has_data(section: dict[str, object] | None) -> bool:
+    """
+    Availability detection algorithm for summary sections.
+
+    We treat a section as 'no data' when:
+    1) payload missing,
+    2) lines empty, or
+    3) lines include known sentinel text (Chinese/English).
+    """
     if not section:
         return False
     lines = section.get('lines') or []
@@ -59,6 +67,7 @@ def section_has_data(section: dict[str, object] | None) -> bool:
     return ('\u5c1a\u672a\u8f09\u5165\u8cc7\u6599' not in joined) and ('No data loaded' not in joined)
 
 def line_value(lines: list[str], prefixes: tuple[str, ...]) -> str | None:
+    """Extract a metric value from mixed-language summary lines via prefix matching."""
     for line in lines:
         if not isinstance(line, str):
             continue
@@ -217,9 +226,13 @@ def main() -> None:
     </style>
     """, unsafe_allow_html=True)
 
-    st.title('投資管理儀表板')
-    st.caption('同站整合 Bonds、Stocks 與 FCN，請由左側分頁切換。')
+    st.title('Investment Management Dashboard')
+    st.caption('Unified view of Bonds, Stocks, and FCN. Use the left sidebar to switch pages.')
 
+    # Data source selection algorithm:
+    # 1) Try API summary endpoints first (cloud-safe mode).
+    # 2) If one section has no data, fallback to local parquet for that section only.
+    # This avoids all-or-nothing failure and keeps partial results visible.
     api_base_url = get_api_base_url()
     bond_api = fetch_api_section(api_base_url, '/api/v1/investments/bonds')
     stock_api = fetch_api_section(api_base_url, '/api/v1/investments/stocks')
@@ -239,21 +252,21 @@ def main() -> None:
     if not section_has_data(fcn_api):
         fcn_summary_df = load_frame('mart_fcn_summary/latest.parquet')
 
-    bond_summary = '目前無債券資料，請稍後再試。'
+    bond_summary = 'No bond data available right now. Please try again later.'
     if section_has_data(bond_api):
         bond_summary = '\n'.join(str(line) for line in (bond_api.get('lines') or [])[:2])
     elif not bond_df.empty:
-        bond_summary = f"總投資額 {fmt_amount(bond_df['face_amount'].sum())}\n平均收益率 {fmt_pct(bond_df['ytm'].mean())}"
+        bond_summary = f"Total investment {fmt_amount(bond_df['face_amount'].sum())}\nAverage yield {fmt_pct(bond_df['ytm'].mean())}"
 
-    stock_summary = '目前無股票資料，請稍後再試。'
+    stock_summary = 'No stock data available right now. Please try again later.'
     if section_has_data(stock_api):
         stock_summary = '\n'.join(str(line) for line in (stock_api.get('lines') or [])[:2])
     elif not stock_df.empty:
         total_cost = stock_df['total_cost_jpy'].sum()
         total_return = stock_df['unrealized_pnl_jpy'].sum() / total_cost if total_cost else None
-        stock_summary = f"投資金額 {fmt_amount(total_cost)}\n整體報酬率 {fmt_pct(total_return)}"
+        stock_summary = f"Investment amount {fmt_amount(total_cost)}\nTotal return {fmt_pct(total_return)}"
 
-    fcn_summary_text = '目前無 FCN 資料，請稍後再試。'
+    fcn_summary_text = 'No FCN data available right now. Please try again later.'
     outstanding_coupon = None
     if section_has_data(fcn_api):
         fcn_summary_text = '\n'.join(str(line) for line in (fcn_api.get('lines') or [])[:3])
@@ -262,21 +275,21 @@ def main() -> None:
         outstanding_df = load_frame('stg_fcn_position/latest.parquet')
         if not outstanding_df.empty:
             outstanding_coupon = outstanding_df.loc[outstanding_df['status_group'] == '未到期', 'coupon_income_jpy'].sum()
-        fcn_summary_text = f"總投資額 {fmt_amount(row['total_investment_jpy'])}\n總利息 {fmt_amount(row['total_coupon_jpy'])}\n未到期金額 {fmt_amount(row['outstanding_jpy'])}\n未到期利息 {fmt_amount(outstanding_coupon)}"
+        fcn_summary_text = f"Total investment {fmt_amount(row['total_investment_jpy'])}\nTotal coupon {fmt_amount(row['total_coupon_jpy'])}\nOutstanding amount {fmt_amount(row['outstanding_jpy'])}\nOutstanding coupon {fmt_amount(outstanding_coupon)}"
 
-    st.subheader('快速入口')
+    st.subheader('Quick Access')
     q1, q2, q3 = st.columns(3)
     with q1:
-        st.markdown(entry_card('Bonds', 'Fixed Income', '查看債券部位、交易對象、類型與到期年分析。', '#355c7d', bond_summary), unsafe_allow_html=True)
-        safe_page_link('pages/3_Bond_Portfolio.py', '前往債券分析', '請由左側分頁進入「3_Bond_Portfolio」。')
+        st.markdown(entry_card('Bonds', 'Fixed Income', 'Review bond positions, counterparties, types, and maturity-year analysis.', '#355c7d', bond_summary), unsafe_allow_html=True)
+        safe_page_link('pages/3_Bond_Portfolio.py', 'Open Bond Analysis', 'Use the left sidebar and open "3_Bond_Portfolio".')
     with q2:
-        st.markdown(entry_card('Stocks', 'Equity', '查看日本股票持股、個股損益、報酬率與市值。', '#4f6d4a', stock_summary), unsafe_allow_html=True)
-        safe_page_link('pages/4_Stock_Portfolio.py', '前往股票分析', '請由左側分頁進入「4_Stock_Portfolio」。')
+        st.markdown(entry_card('Stocks', 'Equity', 'Review Japan stock holdings, position PnL, returns, and market value.', '#4f6d4a', stock_summary), unsafe_allow_html=True)
+        safe_page_link('pages/4_Stock_Portfolio.py', 'Open Stock Analysis', 'Use the left sidebar and open "4_Stock_Portfolio".')
     with q3:
-        st.markdown(entry_card('FCN', 'Structured Product', '查看 FCN 投資金額、利息分析、占比與未到期明細。', '#8a5a44', fcn_summary_text), unsafe_allow_html=True)
-        safe_page_link('pages/6_FCN_Portfolio.py', '前往 FCN 分析', '請由左側分頁進入「6_FCN_Portfolio」。')
+        st.markdown(entry_card('FCN', 'Structured Product', 'Review FCN investment amount, coupon analysis, allocation, and outstanding details.', '#8a5a44', fcn_summary_text), unsafe_allow_html=True)
+        safe_page_link('pages/6_FCN_Portfolio.py', 'Open FCN Analysis', 'Use the left sidebar and open "6_FCN_Portfolio".')
 
-    st.subheader('摘要總覽')
+    st.subheader('Summary Overview')
 
     if section_has_data(bond_api):
         bond_lines = bond_api.get('lines') or []
@@ -284,15 +297,15 @@ def main() -> None:
             metric_card('Total Investment', line_value(bond_lines, ('\u6295\u8cc7\u91d1\u984d\uff1a', '\u6295\u8cc7\u91d1\u984d:', 'Investment amount:', 'Investment amount?')) or 'N/A', 'neutral'),
             metric_card('Average Yield', line_value(bond_lines, ('\u5e73\u5747\u6536\u76ca\u7387\uff1a', '\u5e73\u5747\u6536\u76ca\u7387:', 'Average yield:', 'Average yield?')) or 'N/A', 'safe'),
         ]
-        st.markdown(module_block('債券摘要', bond_cards), unsafe_allow_html=True)
+        st.markdown(module_block('Bond Summary', bond_cards), unsafe_allow_html=True)
     elif not bond_df.empty:
         bond_cards = [
-            metric_card('總投資額', fmt_amount(bond_df['face_amount'].sum()), 'neutral'),
-            metric_card('平均收益率', fmt_pct(bond_df['ytm'].mean()), 'safe'),
+            metric_card('Total Investment', fmt_amount(bond_df['face_amount'].sum()), 'neutral'),
+            metric_card('Average Yield', fmt_pct(bond_df['ytm'].mean()), 'safe'),
         ]
-        st.markdown(module_block('債券摘要', bond_cards), unsafe_allow_html=True)
+        st.markdown(module_block('Bond Summary', bond_cards), unsafe_allow_html=True)
     else:
-        st.info('目前尚無債券資料。可稍後重試，或確認 API 已同步最新數據。')
+        st.info('No bond data is available yet. Try again later or confirm the API has synced the latest data.')
 
     if section_has_data(stock_api):
         stock_lines = stock_api.get('lines') or []
@@ -300,17 +313,17 @@ def main() -> None:
             metric_card('Investment Amount', line_value(stock_lines, ('\u6295\u8cc7\u91d1\u984d\uff1a', '\u6295\u8cc7\u91d1\u984d:', 'Investment amount:', 'Investment amount?')) or 'N/A', 'neutral'),
             metric_card('Total Return', line_value(stock_lines, ('\u6574\u9ad4\u5831\u916c\u7387\uff1a', '\u6574\u9ad4\u5831\u916c\u7387:', 'Total return:', 'Total return?')) or 'N/A', 'warn'),
         ]
-        st.markdown(module_block('股票摘要', stock_cards), unsafe_allow_html=True)
+        st.markdown(module_block('Stock Summary', stock_cards), unsafe_allow_html=True)
     elif not stock_df.empty:
         total_cost = stock_df['total_cost_jpy'].sum()
         total_return = stock_df['unrealized_pnl_jpy'].sum() / total_cost if total_cost else None
         stock_cards = [
-            metric_card('投資金額', fmt_amount(total_cost), 'neutral'),
-            metric_card('整體報酬率', fmt_pct(total_return), 'warn'),
+            metric_card('Investment Amount', fmt_amount(total_cost), 'neutral'),
+            metric_card('Total Return', fmt_pct(total_return), 'warn'),
         ]
-        st.markdown(module_block('股票摘要', stock_cards), unsafe_allow_html=True)
+        st.markdown(module_block('Stock Summary', stock_cards), unsafe_allow_html=True)
     else:
-        st.info('目前尚無股票資料。可稍後重試，或確認 API 已同步最新數據。')
+        st.info('No stock data is available yet. Try again later or confirm the API has synced the latest data.')
 
     if section_has_data(fcn_api):
         fcn_lines = fcn_api.get('lines') or []
@@ -320,35 +333,36 @@ def main() -> None:
             metric_card('Outstanding Amount', line_value(fcn_lines, ('\u672a\u5230\u671f\u91d1\u984d\uff1a', '\u672a\u5230\u671f\u91d1\u984d:', 'Outstanding amount:', 'Outstanding amount?')) or 'N/A', 'safe'),
             metric_card('Outstanding Coupon', line_value(fcn_lines, ('\u672a\u5230\u671f\u5229\u606f\uff1a', '\u672a\u5230\u671f\u5229\u606f:', 'Outstanding coupon:', 'Outstanding coupon?')) or 'N/A', 'warn'),
         ]
-        st.markdown(module_block('FCN 摘要', fcn_cards), unsafe_allow_html=True)
+        st.markdown(module_block('FCN Summary', fcn_cards), unsafe_allow_html=True)
     elif not fcn_summary_df.empty:
         row = fcn_summary_df.iloc[0]
         fcn_cards = [
-            metric_card('總投資額', fmt_amount(row['total_investment_jpy']), 'neutral'),
-            metric_card('總利息', fmt_amount(row['total_coupon_jpy']), 'warn'),
-            metric_card('未到期金額', fmt_amount(row['outstanding_jpy']), 'safe'),
-            metric_card('未到期利息', fmt_amount(outstanding_coupon), 'warn'),
+            metric_card('Total Investment', fmt_amount(row['total_investment_jpy']), 'neutral'),
+            metric_card('Total Coupon', fmt_amount(row['total_coupon_jpy']), 'warn'),
+            metric_card('Outstanding Amount', fmt_amount(row['outstanding_jpy']), 'safe'),
+            metric_card('Outstanding Coupon', fmt_amount(outstanding_coupon), 'warn'),
         ]
-        st.markdown(module_block('FCN 摘要', fcn_cards), unsafe_allow_html=True)
+        st.markdown(module_block('FCN Summary', fcn_cards), unsafe_allow_html=True)
     else:
-        st.info('目前尚無 FCN 資料。可稍後重試，或確認 API 已同步最新數據。')
+        st.info('No FCN data is available yet. Try again later or confirm the API has synced the latest data.')
 
     local_has_data = any([not bond_df.empty, not stock_df.empty, not fcn_summary_df.empty])
     if not api_base_url:
-        st.warning('尚未設定投資 API 位址（INVESTMENT_API_BASE_URL），目前使用本機資料模式。')
+        st.warning('Investment API base URL is not configured (INVESTMENT_API_BASE_URL). Local data mode is active.')
     elif not api_reachable:
         if local_has_data:
-            st.warning('已設定投資 API 位址，但目前無法連線；畫面已改用本機備援資料。')
+            st.warning('Investment API is configured but unreachable. The dashboard is using local fallback data.')
         else:
-            st.error('已設定投資 API 位址，但目前無法連線，且本機也沒有可用資料。')
+            st.error('Investment API is configured but unreachable, and no local fallback data is available.')
     elif not api_has_data:
         if local_has_data:
-            st.warning('投資 API 可連線但目前回傳無資料；畫面已改用本機備援資料。')
+            st.warning('Investment API is reachable but currently returns no data. The dashboard is using local fallback data.')
         else:
-            st.info('投資 API 可連線，但目前尚無資料。請先在 API 端同步後再重整。')
+            st.info('Investment API is reachable, but no data is currently available. Sync data on the API side, then refresh.')
 
-    st.info(f"專案路徑：{Path(__file__).resolve().parent}")
+    st.info(f"Project path: {Path(__file__).resolve().parent}")
 
 
 if __name__ == '__main__':
     main()
+
