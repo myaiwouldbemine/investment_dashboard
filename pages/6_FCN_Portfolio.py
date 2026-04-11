@@ -1,4 +1,7 @@
-﻿import pandas as pd
+﻿import os
+
+import httpx
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -24,6 +27,57 @@ def fmt_pct(value):
         return '-'
     return f"{value:.2%}"
 
+
+
+def _get_secret(name: str) -> str:
+    value = os.getenv(name, '').strip()
+    if value:
+        return value
+    try:
+        value = st.secrets.get(name, '')
+    except Exception:
+        value = ''
+    return str(value).strip()
+
+
+def _api_base_url() -> str:
+    return (_get_secret('INVESTMENT_API_BASE_URL') or _get_secret('INVESTMENT_DASHBOARD_API_BASE_URL')).rstrip('/')
+
+
+def _fetch_api_summary(endpoint: str) -> dict[str, object] | None:
+    base_url = _api_base_url()
+    if not base_url:
+        return None
+    try:
+        with httpx.Client(timeout=4.0) as client:
+            response = client.get(f'{base_url}{endpoint}')
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, dict):
+                return payload
+    except Exception:
+        return None
+    return None
+
+
+def _summary_has_data(payload: dict[str, object] | None) -> bool:
+    if not payload:
+        return False
+    lines = payload.get('lines') or []
+    if not isinstance(lines, list) or not lines:
+        return False
+    return '尚未載入資料' not in ' '.join(str(line) for line in lines)
+
+
+def _line_value(lines: list[str], prefixes: tuple[str, ...]) -> str | None:
+    for line in lines:
+        if not isinstance(line, str):
+            continue
+        normalized = line.replace('：', ':')
+        for prefix in prefixes:
+            if normalized.startswith(prefix.replace('：', ':')):
+                return normalized.split(':', 1)[1].strip()
+    return None
 
 def panel_layout(fig, title: str):
     fig.update_layout(
@@ -185,8 +239,22 @@ st.title('FCN 部位分析')
 st.caption('資料來源：FCNs_20260409.xlsx')
 
 position_path = PROCESSED_DIR / 'stg_fcn_position' / 'latest.parquet'
+fcn_api = _fetch_api_summary('/api/v1/investments/fcn')
+
 if not position_path.exists():
-    st.warning('尚未找到已處理的 FCN 資料，請先執行 `python run_pipeline.py`。')
+    if _summary_has_data(fcn_api):
+        lines = fcn_api.get('lines') or []
+        st.info('目前為 API 摘要模式（雲端無本機 parquet）。明細圖表需本機資料。')
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric('總投資額', _line_value(lines, ('總投資額：', '總投資額:')) or 'N/A')
+        c2.metric('總利息', _line_value(lines, ('總利息：', '總利息:')) or 'N/A')
+        c3.metric('未到期金額', _line_value(lines, ('未到期金額：', '未到期金額:')) or 'N/A')
+        c4.metric('未到期利息', _line_value(lines, ('未到期利息：', '未到期利息:')) or 'N/A')
+        st.stop()
+    if _api_base_url():
+        st.error('已設定投資 API 位址，但目前無法取得FCN資料。')
+    else:
+        st.warning('尚未找到已處理的FCN資料，且未設定投資 API 位址（INVESTMENT_API_BASE_URL）。')
     st.stop()
 
 position_df = pd.read_parquet(position_path)
