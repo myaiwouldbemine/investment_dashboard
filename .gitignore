@@ -9,3 +9,13 @@ __pycache__/
 data/
 *.log
 tmp/
+
+.githooks/_local/
+*.parquet
+*.xlsx
+*.xls
+*.csv
+data/*.parquet
+data/*.xlsx
+data/*.xls
+data/*.csv

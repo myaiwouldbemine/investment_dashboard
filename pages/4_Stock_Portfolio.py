@@ -49,7 +49,7 @@ def _get_secret(name: str) -> str:
 
 
 def _api_base_url() -> str:
-    return (_get_secret('INVESTMENT_API_BASE_URL') or _get_secret('INVESTMENT_DASHBOARD_API_BASE_URL')).rstrip('/')
+    return _get_secret('INVESTMENT_API_BASE_URL').rstrip('/')
 
 
 def _fetch_api_json(endpoint: str) -> dict[str, object] | None:
