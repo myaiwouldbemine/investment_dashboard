@@ -145,3 +145,9 @@ flowchart TD
   G --> F
   I[GitHub] -->|只部署程式與文件| F
 ```
+
+
+## 9) 新環境快速上線
+如果你要在新電腦/新 WSL 快速重建，先看：
+- docs/BOOTSTRAP_30MIN.md
+- 腳本：deploy/scripts/bootstrap_30min.sh
