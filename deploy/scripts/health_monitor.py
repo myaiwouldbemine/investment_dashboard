@@ -85,23 +85,31 @@ def get_ngrok_public_url() -> tuple[str | None, str]:
     return None, "no https ngrok tunnel found"
 
 
+
 def send_telegram_alert(message: str) -> None:
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_ALERT_CHAT_ID", "").strip()
-    if not bot_token or not chat_id:
+    if not token or not chat_id:
         raise RuntimeError("missing TELEGRAM_BOT_TOKEN or TELEGRAM_ALERT_CHAT_ID")
 
-    payload = urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
-    request = Request(
-        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = urlencode(
+        {
+            "chat_id": chat_id,
+            "text": message,
+            "disable_web_page_preview": "true",
+        }
+    ).encode("utf-8")
+
+    req = Request(
+        url,
         data=payload,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
     )
-    with urlopen(request, timeout=10) as response:
-        body = json.loads(response.read().decode("utf-8"))
-    if not body.get("ok"):
-        raise RuntimeError(f"telegram sendMessage failed: {body}")
+    with urlopen(req, timeout=10) as resp:
+        if resp.status != 200:
+            raise RuntimeError(f"telegram send failed: HTTP {resp.status}")
 
 
 def build_alerts(previous_state: dict[str, object], api_ok: bool, api_reason: str, ngrok_url: str | None, ngrok_reason: str) -> tuple[list[str], bool]:
@@ -140,8 +148,10 @@ def main() -> int:
 
     sent_alerts: list[str] = []
     for message in alerts:
+    try:
         send_telegram_alert(message)
-        sent_alerts.append(message)
+    except Exception as exc:
+        print(f"[warn] telegram alert failed: {exc}")
 
     state = {
         "api_ok": api_ok,
