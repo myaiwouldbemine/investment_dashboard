@@ -1,0 +1,22 @@
+[Unit]
+Description=Investment Dashboard ngrok Tunnel (API 8000)
+Wants=network-online.target investment-dashboard-api.service
+After=network-online.target investment-dashboard-api.service
+StartLimitIntervalSec=120
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=ericarthuang
+WorkingDirectory=/home/ericarthuang/.openclaw/workspace/investment_dashboard
+ExecStart=/usr/bin/env bash -lc 'ngrok http 8000 --log=stdout'
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGINT
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
