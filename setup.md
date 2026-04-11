@@ -151,3 +151,34 @@ flowchart TD
 如果你要在新電腦/新 WSL 快速重建，先看：
 - docs/BOOTSTRAP_30MIN.md
 - 腳本：deploy/scripts/bootstrap_30min.sh
+
+## ?????2026-04-11?
+
+### ??????Telegram Bot?
+- ????? `python -m app.main` ?????
+- ??? `409 Conflict`?????????????????
+
+```bash
+pkill -9 -f "python -m app.main" || true
+nohup bash -lc 'cd /home/ericarthuang/.openclaw/workspace/openclaw_email_agent/telegram-ai-assistant && set -a && source .env && set +a && exec .venv/bin/python -m app.main' >/tmp/telegram_ai_assistant.log 2>&1 &
+```
+
+### Token ??
+- Token ??????????? log??????
+- `.env.monitor`?`.env`?`.streamlit/secrets.toml` ????? Git?
+- ?? push ???? staged ????????
+
+### 1 ??????
+
+```bash
+# API + monitor
+cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
+curl -s http://127.0.0.1:8000/health
+systemctl list-timers --all | grep investment-dashboard-monitor
+cat data/state/monitor_state.json
+
+# Telegram bot
+cd /home/ericarthuang/.openclaw/workspace/openclaw_email_agent/telegram-ai-assistant
+pgrep -af "telegram-ai-assistant.*python -m app.main"
+tail -n 30 /tmp/telegram_ai_assistant.log
+```
