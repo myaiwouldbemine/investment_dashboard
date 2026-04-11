@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# Thin HTTP layer: each endpoint delegates business logic to service functions.
+# Parsing, aggregation, fallback, and chart payload shaping are all handled in
+# src/services/investment_summary_service.py for easier testing and reuse.
+
 from fastapi import FastAPI, Query
 
 from src.services.investment_summary_service import (

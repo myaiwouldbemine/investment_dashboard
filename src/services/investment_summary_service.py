@@ -55,6 +55,12 @@ def latest_as_of(*values: str | None) -> str | None:
 
 
 def load_snapshot() -> InvestmentSnapshot:
+    """
+    Snapshot loading algorithm:
+    - Read all required parquet tables once per request cycle.
+    - Attach per-domain as_of timestamps from file mtime.
+    - Return a single bundle used by summary/detail/chart builders.
+    """
     bond_path = 'mart_bond_dashboard_position/latest.parquet'
     bond_cashflow_path = 'mart_bond_dashboard_cashflow/latest.parquet'
     stock_path = 'mart_japan_stock_dashboard/latest.parquet'
@@ -297,6 +303,13 @@ def build_overview_summary(snapshot: InvestmentSnapshot | None = None) -> dict[s
 
 
 def query_summary(query: str) -> dict[str, object]:
+    """
+    Query routing algorithm:
+    1) normalize query text,
+    2) resolve overview vs domain aliases (EN + CJK),
+    3) detect detail query "<alias> <keyword>",
+    4) dispatch to matching summary/detail builder.
+    """
     stripped = query.strip()
     normalized = stripped.casefold()
     snapshot = load_snapshot()
@@ -354,6 +367,7 @@ def query_summary(query: str) -> dict[str, object]:
 
 
 def _to_native(value: Any) -> Any:
+    """Recursively convert numpy/pandas scalars to JSON-native Python types."""
     if isinstance(value, dict):
         return {k: _to_native(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -374,6 +388,7 @@ def _safe_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def _with_weight(frame: pd.DataFrame, value_col: str, weight_col: str = 'weight') -> pd.DataFrame:
+    """Normalize value_col into a ratio column for ranking/percentage charts."""
     if frame.empty or value_col not in frame.columns:
         return frame
     total = frame[value_col].sum()
@@ -382,6 +397,12 @@ def _with_weight(frame: pd.DataFrame, value_col: str, weight_col: str = 'weight'
 
 
 def build_bond_charts_payload(snapshot: InvestmentSnapshot | None = None) -> dict[str, object]:
+    """
+    Bond chart aggregation algorithm:
+    - Group by analytical dimensions (currency/rating/counterparty/type/year/company).
+    - Compute weights on selected dimensions for percentage visuals.
+    - Return chart-ready record arrays so UI rendering stays stateless.
+    """
     snapshot = snapshot or load_snapshot()
     bond_df = snapshot.bond_df
     if bond_df.empty:
@@ -501,6 +522,13 @@ def build_stock_charts_payload(snapshot: InvestmentSnapshot | None = None) -> di
 
 
 def _build_fcn_analysis1_detail(frame: pd.DataFrame) -> pd.DataFrame:
+    """
+    FCN coupon pivot algorithm:
+    - Bucket rows by trade-year x status,
+    - pivot to wide table,
+    - fill missing buckets with 0,
+    - compute Total for sorting/reporting.
+    """
     if frame.empty:
         return pd.DataFrame()
     df = frame.copy()
@@ -522,6 +550,7 @@ def _build_fcn_analysis1_detail(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_fcn_analysis2_detail(frame: pd.DataFrame) -> pd.DataFrame:
+    """FCN investment pivot by status_group with deterministic missing-column fill."""
     if frame.empty:
         return pd.DataFrame()
     piv = frame.pivot_table(index=['company_code', 'underlying'], columns='status_group', values='investment_amount_jpy', aggfunc='sum', fill_value=0).reset_index()

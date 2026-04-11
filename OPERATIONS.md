@@ -85,3 +85,14 @@ git config core.hooksPath .githooks
 ```
 
 如果你換了新機或新 clone，請再執行一次。
+
+## 8) Code-Doc Mapping (How It Actually Runs)
+
+1. Data-source fallback (UI): `app.py`
+   - API first, then per-section parquet fallback.
+2. Query router (API): `src/services/investment_summary_service.py::query_summary`
+   - Alias matching + detail keyword dispatch.
+3. Chart aggregation (API): `build_*_charts_payload`
+   - Groupby/pivot/weight normalization, then JSON-native conversion.
+4. JSON safety layer: `_to_native` + `_safe_records`
+   - Prevent numpy scalar serialization errors.
