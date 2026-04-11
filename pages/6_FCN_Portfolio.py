@@ -1,4 +1,4 @@
-﻿import os
+import os
 
 import httpx
 import pandas as pd
@@ -9,6 +9,9 @@ import streamlit as st
 from config.settings import PROCESSED_DIR
 from src.utils.dashboard_access import enforce_dashboard_access
 
+STATUS_OUTSTANDING = '\u672a\u5230\u671f'
+STATUS_MATURED = '\u5df2\u5230\u671f'
+
 
 def fmt_amount(value):
     if value is None or pd.isna(value):
@@ -16,7 +19,7 @@ def fmt_amount(value):
     value = pd.to_numeric(value, errors='coerce')
     if pd.isna(value):
         return '-'
-    return f"¥{value:,.0f}"
+    return f"JPY {value:,.0f}"
 
 
 def fmt_pct(value):
@@ -26,7 +29,6 @@ def fmt_pct(value):
     if pd.isna(value):
         return '-'
     return f"{value:.2%}"
-
 
 
 def _get_secret(name: str) -> str:
@@ -44,12 +46,12 @@ def _api_base_url() -> str:
     return (_get_secret('INVESTMENT_API_BASE_URL') or _get_secret('INVESTMENT_DASHBOARD_API_BASE_URL')).rstrip('/')
 
 
-def _fetch_api_summary(endpoint: str) -> dict[str, object] | None:
+def _fetch_api_json(endpoint: str) -> dict[str, object] | None:
     base_url = _api_base_url()
     if not base_url:
         return None
     try:
-        with httpx.Client(timeout=4.0) as client:
+        with httpx.Client(timeout=5.0) as client:
             response = client.get(f'{base_url}{endpoint}', headers={'ngrok-skip-browser-warning': '1'})
             response.raise_for_status()
             payload = response.json()
@@ -66,18 +68,8 @@ def _summary_has_data(payload: dict[str, object] | None) -> bool:
     lines = payload.get('lines') or []
     if not isinstance(lines, list) or not lines:
         return False
-    return '尚未載入資料' not in ' '.join(str(line) for line in lines)
+    return 'No data loaded' not in ' '.join(str(line) for line in lines)
 
-
-def _line_value(lines: list[str], prefixes: tuple[str, ...]) -> str | None:
-    for line in lines:
-        if not isinstance(line, str):
-            continue
-        normalized = line.replace('：', ':')
-        for prefix in prefixes:
-            if normalized.startswith(prefix.replace('：', ':')):
-                return normalized.split(':', 1)[1].strip()
-    return None
 
 def panel_layout(fig, title: str):
     fig.update_layout(
@@ -100,69 +92,16 @@ def style_page():
         <style>
         .main {background: linear-gradient(180deg, #0f141b 0%, #141a22 100%);}
         h1, h2, h3 {color: #eef2f8;}
-        .stCaptionContainer, .stMarkdown p {color: #aeb8c4 !important;}
-        .stMetric {
-            background: #1b212a;
-            border: 1px solid #2b3440;
-            border-radius: 18px;
-            padding: 12px;
-        }
-        .stMetric label, .stMetric [data-testid="stMetricLabel"], .stMetric [data-testid="stMetricValue"] {
-            color: #eef2f8 !important;
-        }
-        .block {
-            background: #1a2028;
-            border: 1px solid #2b3440;
-            border-radius: 18px;
-            padding: 12px 12px 4px 12px;
-            margin-bottom: 16px;
-        }
-        .table-title {
-            font-size: 18px;
-            font-weight: 800;
-            color: #e7edf5;
-            margin: 6px 0 12px 0;
-        }
-        .summary-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            overflow: hidden;
-            border: 1px solid #2b3440;
-            border-radius: 16px;
-        }
-        .summary-table th {
-            background: #1d2735;
-            color: #9fb0c5;
-            padding: 12px 14px;
-            font-size: 14px;
-            text-align: center;
-            border-bottom: 1px solid #2b3440;
-        }
-        .summary-table td {
-            padding: 12px 14px;
-            border-bottom: 1px solid #2b3440;
-            color: #eef2f8;
-            font-size: 15px;
-        }
+        .stMetric {background: #1b212a; border: 1px solid #2b3440; border-radius: 18px; padding: 12px;}
+        .block {background: #1a2028; border: 1px solid #2b3440; border-radius: 18px; padding: 12px 12px 4px 12px; margin-bottom: 16px;}
+        .table-title {font-size: 18px; font-weight: 800; color: #e7edf5; margin: 6px 0 12px 0;}
+        .summary-table {width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid #2b3440; border-radius: 16px;}
+        .summary-table th {background: #1d2735; color: #9fb0c5; padding: 12px 14px; font-size: 14px; text-align: center; border-bottom: 1px solid #2b3440;}
+        .summary-table td {padding: 12px 14px; border-bottom: 1px solid #2b3440; color: #eef2f8; font-size: 15px;}
         .summary-table tr:last-child td {border-bottom: none;}
-        .summary-table td.label-cell {
-            background: #1d2735;
-            color: #9fb0c5;
-            font-weight: 700;
-        }
-        .summary-table td.group-cell {
-            background: #1d2735;
-            color: #9fb0c5;
-            font-weight: 700;
-            vertical-align: top;
-        }
-        .summary-table td.total-cell {
-            font-weight: 800;
-        }
-        .stDataFrame {background: rgba(255,255,255,0.04); border-radius: 14px;}
-        section[data-testid="stSidebar"] [data-baseweb="tag"] {background: #4b5058 !important; border: 1px solid #666c75 !important;}
-        section[data-testid="stSidebar"] [data-baseweb="tag"] span {color: #f5f7fa !important;}
+        .summary-table td.label-cell {background: #1d2735; color: #9fb0c5; font-weight: 700;}
+        .summary-table td.group-cell {background: #1d2735; color: #9fb0c5; font-weight: 700; vertical-align: top;}
+        .summary-table td.total-cell {font-weight: 800;}
         </style>
         """,
         unsafe_allow_html=True,
@@ -172,29 +111,33 @@ def style_page():
 def build_analysis1_detail(frame: pd.DataFrame) -> pd.DataFrame:
     df = frame.copy()
     df['trade_year'] = df['trade_date'].dt.year
-    df['bucket'] = '其他'
-    df.loc[df['trade_year'] == 2025, 'bucket'] = '2025年 | 已到期'
-    df.loc[(df['trade_year'] == 2026) & (df['status_group'] == '已到期'), 'bucket'] = '2026年 | 已到期'
-    df.loc[(df['trade_year'] == 2026) & (df['status_group'] == '未到期'), 'bucket'] = '2026年 | 未到期'
+    df['bucket'] = 'Other'
+    df.loc[df['trade_year'] == 2025, 'bucket'] = '2025 | Matured'
+    df.loc[(df['trade_year'] == 2026) & (df['status_group'] == STATUS_MATURED), 'bucket'] = '2026 | Matured'
+    df.loc[(df['trade_year'] == 2026) & (df['status_group'] == STATUS_OUTSTANDING), 'bucket'] = '2026 | Outstanding'
     piv = df.pivot_table(index=['company_code', 'underlying'], columns='bucket', values='coupon_income_jpy', aggfunc='sum', fill_value=0).reset_index()
-    for col in ['2025年 | 已到期', '2026年 | 已到期', '2026年 | 未到期']:
+    for col in ['2025 | Matured', '2026 | Matured', '2026 | Outstanding']:
         if col not in piv.columns:
             piv[col] = 0
-    piv['總計'] = piv['2025年 | 已到期'] + piv['2026年 | 已到期'] + piv['2026年 | 未到期']
-    return piv[['company_code', 'underlying', '2025年 | 已到期', '2026年 | 已到期', '2026年 | 未到期', '總計']].sort_values(['company_code', '總計'], ascending=[True, False])
+    piv['Total'] = piv['2025 | Matured'] + piv['2026 | Matured'] + piv['2026 | Outstanding']
+    return piv[['company_code', 'underlying', '2025 | Matured', '2026 | Matured', '2026 | Outstanding', 'Total']].sort_values(['company_code', 'Total'], ascending=[True, False])
 
 
 def build_analysis2_detail(frame: pd.DataFrame) -> pd.DataFrame:
     df = frame.copy()
     piv = df.pivot_table(index=['company_code', 'underlying'], columns='status_group', values='investment_amount_jpy', aggfunc='sum', fill_value=0).reset_index()
-    for col in ['已到期', '未到期']:
-        if col not in piv.columns:
-            piv[col] = 0
-    piv['總計'] = piv['已到期'] + piv['未到期']
-    return piv[['company_code', 'underlying', '已到期', '未到期', '總計']].sort_values(['company_code', '總計'], ascending=[True, False])
+    if STATUS_MATURED not in piv.columns:
+        piv[STATUS_MATURED] = 0
+    if STATUS_OUTSTANDING not in piv.columns:
+        piv[STATUS_OUTSTANDING] = 0
+    piv['Total'] = piv[STATUS_MATURED] + piv[STATUS_OUTSTANDING]
+    return piv[['company_code', 'underlying', STATUS_MATURED, STATUS_OUTSTANDING, 'Total']].sort_values(['company_code', 'Total'], ascending=[True, False])
 
 
 def render_group_table(df: pd.DataFrame, title: str, group_col: str, item_col: str, value_cols: list[str]):
+    if df.empty:
+        st.warning(f'{title}: no data')
+        return
     rows = []
     for company, part in df.groupby(group_col, sort=False):
         first = True
@@ -210,7 +153,7 @@ def render_group_table(df: pd.DataFrame, title: str, group_col: str, item_col: s
                 cells.append(f"<td>{fmt_amount(row[col]) if row[col] != 0 else '-'}</td>")
             rows.append(f"<tr>{''.join(cells)}</tr>")
     total_vals = {col: df[col].sum() for col in value_cols}
-    total_cells = ["<td class='group-cell total-cell'>總計</td>", "<td class='label-cell'></td>"]
+    total_cells = ["<td class='group-cell total-cell'>Total</td>", "<td class='label-cell'></td>"]
     for col in value_cols:
         total_cells.append(f"<td class='total-cell'>{fmt_amount(total_vals[col])}</td>")
     head = ''.join([f"<th>{col}</th>" for col in value_cols])
@@ -218,13 +161,8 @@ def render_group_table(df: pd.DataFrame, title: str, group_col: str, item_col: s
     <div class='block'>
       <div class='table-title'>{title}</div>
       <table class='summary-table'>
-        <thead>
-          <tr><th>公司</th><th>標的</th>{head}</tr>
-        </thead>
-        <tbody>
-          {''.join(rows)}
-          <tr>{''.join(total_cells)}</tr>
-        </tbody>
+        <thead><tr><th>Company</th><th>Underlying</th>{head}</tr></thead>
+        <tbody>{''.join(rows)}<tr>{''.join(total_cells)}</tr></tbody>
       </table>
     </div>
     """
@@ -235,124 +173,114 @@ st.set_page_config(layout='wide')
 enforce_dashboard_access()
 style_page()
 
-st.title('FCN 部位分析')
-st.caption('資料來源：FCNs_20260409.xlsx')
+st.title('FCN Portfolio Analysis')
+st.caption('Source: FCNs_20260409.xlsx')
 
 position_path = PROCESSED_DIR / 'stg_fcn_position' / 'latest.parquet'
-fcn_api = _fetch_api_summary('/api/v1/investments/fcn')
+fcn_api = _fetch_api_json('/api/v1/investments/fcn')
+fcn_chart_api = _fetch_api_json('/api/v1/investments/charts/fcn')
 
 if not position_path.exists():
-    if _summary_has_data(fcn_api):
-        lines = fcn_api.get('lines') or []
-        st.info('目前為 API 摘要模式（雲端無本機 parquet）。明細圖表需本機資料。')
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric('總投資額', _line_value(lines, ('總投資額：', '總投資額:')) or 'N/A')
-        c2.metric('總利息', _line_value(lines, ('總利息：', '總利息:')) or 'N/A')
-        c3.metric('未到期金額', _line_value(lines, ('未到期金額：', '未到期金額:')) or 'N/A')
-        c4.metric('未到期利息', _line_value(lines, ('未到期利息：', '未到期利息:')) or 'N/A')
+    has_chart_data = bool(fcn_chart_api and fcn_chart_api.get('available'))
+    if has_chart_data:
+        metrics = fcn_chart_api.get('metrics') or {}
+        charts = fcn_chart_api.get('charts') or {}
+        tables = fcn_chart_api.get('tables') or {}
+
+        sum_invest = pd.to_numeric(metrics.get('sum_invest'), errors='coerce')
+        sum_coupon = pd.to_numeric(metrics.get('sum_coupon'), errors='coerce')
+        outstanding = pd.to_numeric(metrics.get('outstanding'), errors='coerce')
+        due_180 = pd.to_numeric(metrics.get('due_180'), errors='coerce')
+
+        sum_invest = 0.0 if pd.isna(sum_invest) else sum_invest
+        sum_coupon = 0.0 if pd.isna(sum_coupon) else sum_coupon
+        outstanding = 0.0 if pd.isna(outstanding) else outstanding
+        due_180 = 0.0 if pd.isna(due_180) else due_180
+
+        st.info('API mode enabled. Charts are rendered from aggregated API data.')
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric('Total Investment', f"JPY {sum_invest/1_000_000_000:.2f}B")
+        k2.metric('Total Coupon', f"JPY {sum_coupon/1_000_000:.0f}M")
+        k3.metric('Outstanding', f"JPY {outstanding/1_000_000_000:.2f}B")
+        k4.metric('Due in 180d', f"JPY {due_180/1_000_000_000:.2f}B")
+
+        company_status = pd.DataFrame(charts.get('company_status') or [])
+        company_total = pd.DataFrame(charts.get('company_total') or [])
+        if not company_status.empty and {'company_code', 'status_group', 'investment_amount_jpy'}.issubset(company_status.columns):
+            fig = px.bar(company_status, x='company_code', y='investment_amount_jpy', color='status_group', barmode='group')
+            fig.update_layout(xaxis_title='Company', yaxis_title='Amount')
+            left, right = st.columns([1.7, 1.1])
+            with left:
+                st.plotly_chart(panel_layout(fig, 'Amount by Company and Status'), use_container_width=True, config={'displayModeBar': False})
+            with right:
+                if not company_total.empty and {'company_code', 'investment_amount_jpy'}.issubset(company_total.columns):
+                    company_total = company_total.sort_values('investment_amount_jpy', ascending=False)
+                    donut = go.Figure(go.Pie(labels=company_total['company_code'], values=company_total['investment_amount_jpy'], hole=0.5, textinfo='none'))
+                    donut.update_layout(title='Company Allocation', paper_bgcolor='#1a2028', plot_bgcolor='#1a2028', font=dict(color='#cfd7e3', size=15), margin=dict(l=10, r=10, t=82, b=10))
+                    st.plotly_chart(donut, use_container_width=True, config={'displayModeBar': False})
+
+        analysis1 = pd.DataFrame(tables.get('analysis1') or [])
+        analysis2 = pd.DataFrame(tables.get('analysis2') or [])
+        render_group_table(analysis1, 'FCN Analysis 1: Coupon Pivot', 'company_code', 'underlying', ['2025 | Matured', '2026 | Matured', '2026 | Outstanding', 'Total'])
+        render_group_table(analysis2, 'FCN Analysis 2: Investment Pivot', 'company_code', 'underlying', [STATUS_MATURED, STATUS_OUTSTANDING, 'Total'])
         st.stop()
+
+    if _summary_has_data(fcn_api):
+        st.info('API summary mode enabled.')
+        st.json(fcn_api)
+        st.stop()
+
     if _api_base_url():
-        st.error('已設定投資 API 位址，但目前無法取得FCN資料。')
+        st.error('API base URL is configured but FCN data is unavailable.')
     else:
-        st.warning('尚未找到已處理的FCN資料，且未設定投資 API 位址（INVESTMENT_API_BASE_URL）。')
+        st.warning('No local FCN parquet and no API base URL configured.')
     st.stop()
 
 position_df = pd.read_parquet(position_path)
 
 with st.sidebar:
-    st.header('篩選條件')
+    st.header('Filters')
     companies = sorted([x for x in position_df['company_code'].dropna().unique().tolist()])
     underlyings = sorted([x for x in position_df['underlying'].dropna().unique().tolist()])
-    selected_company = st.multiselect('公司別', companies, default=companies)
-    selected_underlying = st.multiselect('標的', underlyings, default=underlyings)
+    selected_company = st.multiselect('Company', companies, default=companies)
+    selected_underlying = st.multiselect('Underlying', underlyings, default=underlyings)
 
-filtered = position_df[
-    position_df['company_code'].isin(selected_company)
-    & position_df['underlying'].isin(selected_underlying)
-].copy()
+filtered = position_df[position_df['company_code'].isin(selected_company) & position_df['underlying'].isin(selected_underlying)].copy()
 
 sum_invest = filtered['investment_amount_jpy'].sum()
 sum_coupon = filtered['coupon_income_jpy'].sum()
-outstanding = filtered.loc[filtered['status_group'] == '未到期', 'investment_amount_jpy'].sum()
+outstanding = filtered.loc[filtered['status_group'] == STATUS_OUTSTANDING, 'investment_amount_jpy'].sum()
 due_180 = filtered.loc[filtered['days_to_maturity'].between(0, 180, inclusive='both'), 'investment_amount_jpy'].sum()
 
 k1, k2, k3, k4 = st.columns(4)
-k1.metric('總投資金額', f"¥{sum_invest/1_000_000_000:.2f}B")
-k2.metric('累計利息', f"¥{sum_coupon/1_000_000:.0f}M")
-k3.metric('未到期金額', f"¥{outstanding/1_000_000_000:.2f}B")
-k4.metric('180天內到期', f"¥{due_180/1_000_000_000:.2f}B")
+k1.metric('Total Investment', f"JPY {sum_invest/1_000_000_000:.2f}B")
+k2.metric('Total Coupon', f"JPY {sum_coupon/1_000_000:.0f}M")
+k3.metric('Outstanding', f"JPY {outstanding/1_000_000_000:.2f}B")
+k4.metric('Due in 180d', f"JPY {due_180/1_000_000_000:.2f}B")
 
 company_status = filtered.groupby(['company_code', 'status_group'], dropna=False)[['investment_amount_jpy']].sum().reset_index()
-fig = px.bar(company_status, x='company_code', y='investment_amount_jpy', color='status_group', barmode='group', color_discrete_map={'已到期': '#3b7bbb', '未到期': '#76b447'})
-fig.update_layout(xaxis_title='公司', yaxis_title='投資金額')
-fig.update_traces(hovertemplate='公司: %{x}<br>金額: %{y:,.0f}<extra></extra>')
+fig = px.bar(company_status, x='company_code', y='investment_amount_jpy', color='status_group', barmode='group')
+fig.update_layout(xaxis_title='Company', yaxis_title='Amount')
 left, right = st.columns([1.7, 1.1])
 with left:
-    st.plotly_chart(panel_layout(fig, '各公司投資金額（已到期 vs 未到期）'), use_container_width=True, config={'displayModeBar': False})
+    st.plotly_chart(panel_layout(fig, 'Amount by Company and Status'), use_container_width=True, config={'displayModeBar': False})
 with right:
-    company_total = filtered.groupby('company_code', dropna=False)[['investment_amount_jpy']].sum().reset_index()
-    company_total['sort_key'] = company_total['investment_amount_jpy'].rank(method='first', ascending=False)
-    company_total = company_total.sort_values(['sort_key', 'company_code']).drop(columns=['sort_key'])
-    color_map = {
-        'BOSS': '#6eaee3',
-        'HSB': '#2f78c4',
-        'WTC': '#8bc06a',
-        'GBM': '#f0b94b',
-    }
-    donut = go.Figure(
-        go.Pie(
-            labels=company_total['company_code'],
-            values=company_total['investment_amount_jpy'],
-            hole=0.5,
-            textinfo='none',
-            marker=dict(colors=[color_map.get(label, '#9aa7b8') for label in company_total['company_code']]),
-            hovertemplate='公司: %{label}<br>投資金額: ¥%{value:,.0f}<br>占比: %{percent}<extra></extra>'
-        )
-    )
-    donut.update_layout(
-        title='投資金額佔比',
-        paper_bgcolor='#1a2028',
-        plot_bgcolor='#1a2028',
-        font=dict(color='#cfd7e3', size=15),
-        title_font=dict(size=18, color='#cfd7e3'),
-        margin=dict(l=10, r=10, t=82, b=10),
-        legend=dict(orientation='h', y=1.12, x=0.18, font=dict(size=13))
-    )
+    company_total = filtered.groupby('company_code', dropna=False)[['investment_amount_jpy']].sum().reset_index().sort_values('investment_amount_jpy', ascending=False)
+    donut = go.Figure(go.Pie(labels=company_total['company_code'], values=company_total['investment_amount_jpy'], hole=0.5, textinfo='none'))
+    donut.update_layout(title='Company Allocation', paper_bgcolor='#1a2028', plot_bgcolor='#1a2028', font=dict(color='#cfd7e3', size=15), margin=dict(l=10, r=10, t=82, b=10))
     st.plotly_chart(donut, use_container_width=True, config={'displayModeBar': False})
 
 analysis1 = build_analysis1_detail(filtered)
 analysis2 = build_analysis2_detail(filtered)
-render_group_table(analysis1, 'FCN Analysis 1：利息(日元)樞紐分析表', 'company_code', 'underlying', ['2025年 | 已到期', '2026年 | 已到期', '2026年 | 未到期', '總計'])
-render_group_table(analysis2, 'FCN Analysis 2：投資金額(日元)樞紐分析表', 'company_code', 'underlying', ['已到期', '未到期', '總計'])
+render_group_table(analysis1, 'FCN Analysis 1: Coupon Pivot', 'company_code', 'underlying', ['2025 | Matured', '2026 | Matured', '2026 | Outstanding', 'Total'])
+render_group_table(analysis2, 'FCN Analysis 2: Investment Pivot', 'company_code', 'underlying', [STATUS_MATURED, STATUS_OUTSTANDING, 'Total'])
 
-st.subheader('未到期 FCN 明細查詢')
-detail = filtered.loc[filtered['status_group'] == '未到期'].rename(columns={
-    'company_code': '公司別',
-        'underlying': '標的',
-    'tenor_months': '月數',
-    'coupon_rate': '票息',
-    'put_strike_pct': 'Put Strike',
-    'spot_price': 'Spot Price',
-    'strike_price': 'Strike Price',
-    'trade_date': '交易日',
-    'maturity_date': '到期日',
-    'investment_amount_jpy': '投資金額',
-    'coupon_income_jpy': '利息',
-}).copy()
-for col in ['交易日', '到期日']:
+st.subheader('Outstanding FCN Detail')
+detail = filtered.loc[filtered['status_group'] == STATUS_OUTSTANDING].rename(columns={'company_code': 'Company', 'underlying': 'Underlying', 'tenor_months': 'Tenor(M)', 'coupon_rate': 'Coupon', 'put_strike_pct': 'Put Strike', 'spot_price': 'Spot Price', 'strike_price': 'Strike Price', 'trade_date': 'Trade Date', 'maturity_date': 'Maturity Date', 'investment_amount_jpy': 'Investment', 'coupon_income_jpy': 'Coupon Income'}).copy()
+for col in ['Trade Date', 'Maturity Date']:
     detail[col] = pd.to_datetime(detail[col], errors='coerce').dt.strftime('%Y-%m-%d').fillna('')
-for col in ['投資金額', '利息', 'Spot Price', 'Strike Price']:
+for col in ['Investment', 'Coupon Income', 'Spot Price', 'Strike Price']:
     detail[col] = detail[col].map(fmt_amount)
-detail['票息'] = detail['票息'].map(fmt_pct)
+detail['Coupon'] = detail['Coupon'].map(fmt_pct)
 detail['Put Strike'] = detail['Put Strike'].map(fmt_pct)
-st.dataframe(detail[['公司別', '標的', '月數', '票息', 'Put Strike', 'Spot Price', 'Strike Price', '交易日', '到期日', '投資金額', '利息']], use_container_width=True, hide_index=True)
-
-
-
-
-
-
-
-
-
-
+st.dataframe(detail[['Company', 'Underlying', 'Tenor(M)', 'Coupon', 'Put Strike', 'Spot Price', 'Strike Price', 'Trade Date', 'Maturity Date', 'Investment', 'Coupon Income']], use_container_width=True, hide_index=True)
