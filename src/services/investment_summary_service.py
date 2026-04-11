@@ -353,11 +353,24 @@ def query_summary(query: str) -> dict[str, object]:
     }
 
 
+def _to_native(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _to_native(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_to_native(v) for v in value]
+    if hasattr(value, 'item'):
+        try:
+            return value.item()
+        except Exception:
+            return value
+    return value
+
+
 def _safe_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
     if frame.empty:
         return []
     clean = frame.where(pd.notna(frame), None)
-    return clean.to_dict(orient='records')
+    return _to_native(clean.to_dict(orient='records'))
 
 
 def _with_weight(frame: pd.DataFrame, value_col: str, weight_col: str = 'weight') -> pd.DataFrame:
@@ -413,7 +426,7 @@ def build_bond_charts_payload(snapshot: InvestmentSnapshot | None = None) -> dic
     if not cashflow_df.empty and 'cashflow_type' in cashflow_df.columns:
         cashflow_df['cashflow_type'] = cashflow_df['cashflow_type'].fillna('unknown')
 
-    return {
+    return _to_native({
         'available': True,
         'as_of': snapshot.bond_as_of,
         'metrics': metrics,
@@ -426,7 +439,7 @@ def build_bond_charts_payload(snapshot: InvestmentSnapshot | None = None) -> dic
             'company': _safe_records(company_df),
             'cashflow': _safe_records(cashflow_df),
         },
-    }
+    })
 
 
 def build_stock_charts_payload(snapshot: InvestmentSnapshot | None = None) -> dict[str, object]:
@@ -469,7 +482,7 @@ def build_stock_charts_payload(snapshot: InvestmentSnapshot | None = None) -> di
         if {'company_code', 'security_name_zh', 'unrealized_pnl_jpy'}.issubset(stock_df.columns) else pd.DataFrame()
     )
 
-    return {
+    return _to_native({
         'available': True,
         'as_of': snapshot.stock_as_of,
         'metrics': {
@@ -484,7 +497,7 @@ def build_stock_charts_payload(snapshot: InvestmentSnapshot | None = None) -> di
             'market_value': _safe_records(market_df),
             'heatmap': _safe_records(heatmap_df),
         },
-    }
+    })
 
 
 def _build_fcn_analysis1_detail(frame: pd.DataFrame) -> pd.DataFrame:
@@ -547,7 +560,7 @@ def build_fcn_charts_payload(snapshot: InvestmentSnapshot | None = None) -> dict
     analysis1 = _build_fcn_analysis1_detail(fcn_df)
     analysis2 = _build_fcn_analysis2_detail(fcn_df)
 
-    return {
+    return _to_native({
         'available': True,
         'as_of': snapshot.fcn_as_of,
         'metrics': {
@@ -564,4 +577,4 @@ def build_fcn_charts_payload(snapshot: InvestmentSnapshot | None = None) -> dict
             'analysis1': _safe_records(analysis1),
             'analysis2': _safe_records(analysis2),
         },
-    }
+    })
