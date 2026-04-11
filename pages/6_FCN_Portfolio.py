@@ -50,7 +50,7 @@ def _fetch_api_summary(endpoint: str) -> dict[str, object] | None:
         return None
     try:
         with httpx.Client(timeout=4.0) as client:
-            response = client.get(f'{base_url}{endpoint}')
+            response = client.get(f'{base_url}{endpoint}', headers={'ngrok-skip-browser-warning': '1'})
             response.raise_for_status()
             payload = response.json()
             if isinstance(payload, dict):
