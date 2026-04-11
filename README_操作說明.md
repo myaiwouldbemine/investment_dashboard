@@ -260,3 +260,34 @@ Telegram 比較適合先看摘要，不一定每次都要打開 dashboard。
    Telegram 比較適合先看摘要；要看整體配置、圖表變化與明細，還是 dashboard 最完整。
 
 如果只是日常快速檢查，通常做到第 1 步和第 2 步就已經很夠用。
+---
+
+## 保密與每日操作（最新版）
+
+### A. 資料保密原則
+- 資料檔（Excel/Parquet/CSV）留在本機，不上 GitHub。
+- GitHub 只放程式碼、設定與文件。
+
+### B. 每日更新最短路徑
+
+```bash
+cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
+bash deploy/scripts/update_data_files.sh --run-pipeline
+```
+
+更新後驗證：
+1. 本機 `http://localhost:8501`
+2. API `curl -s http://127.0.0.1:8000/health`
+3. Telegram `/invest`
+
+### C. 何時才需要 git push
+只有在你改「程式/設定/文件」時才 push，且要排除資料檔：
+
+```bash
+git add -A
+git restore --staged data/ "*.parquet" "*.xlsx" "*.xls" "*.csv" || true
+git status --short
+git commit -m "update code/docs"
+git pull --rebase origin main
+git push origin main
+```

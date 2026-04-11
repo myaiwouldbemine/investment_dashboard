@@ -1,64 +1,112 @@
-﻿# Reproduce
+# Reproduce (Clean Environment Guide)
 
-This guide rebuilds the investment dashboard from a clean clone in WSL.
+This guide rebuilds the dashboard in a brand-new WSL machine with the **current architecture**:
+- Streamlit Cloud hosts UI
+- Local API serves data (through ngrok)
+- Data files stay local and are NOT pushed to GitHub
 
-## Prerequisites
+## 1) Prerequisites
 
-- WSL Ubuntu 24.04.
-- Python 3.11 or newer.
-- Source Excel workbooks available in `/mnt/c/Users/ericarthuang/Downloads/`.
+- WSL Ubuntu 24.04 with systemd enabled
+- Python 3.12+ and `pip`
+- `ngrok` installed in WSL and authtoken configured
+- Source files available in Windows Downloads
 
-## Source Files
-
-The pipeline reads the workbook paths defined in `config/settings.py`.
-If you use different filenames or locations, update that file before running the pipeline.
-
-## Rebuild Steps
-
-1. Open a shell in the repository root.
-2. Create a virtual environment and install dependencies.
-3. Confirm the source Excel files are present.
-4. Run the pipeline to build raw and processed parquet outputs.
-5. Start the FastAPI service.
-6. Start the Streamlit web UI if you want a browser page for Telegram links.
-7. Check `/health` and the summary endpoints.
+## 2) Clone and bootstrap
 
 ```bash
-cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
+cd /home/<your-user>/.openclaw/workspace
+git clone https://github.com/<your-account>/investment_dashboard.git
+cd investment_dashboard
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-python run_pipeline.py
-python -m uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-## Streamlit Web UI
-
-If you want a browser page for the Telegram button, start the Streamlit app in another terminal and use that URL for `INVESTMENT_DASHBOARD_URL`.
+## 3) Enable Git safety guard (one-time)
 
 ```bash
-cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
-. .venv/bin/activate
-streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+git config core.hooksPath .githooks
 ```
 
-## Systemd Services
+This blocks accidental commits of:
+- `data/`
+- `*.parquet`, `*.xlsx`, `*.xls`, `*.csv`
 
-If you want both services to keep running in WSL, install the unit files and enable them.
+## 4) Put source files in Downloads
+
+Windows path:
+- `C:\Users\<you>\Downloads\bond_source.xlsx`
+- `C:\Users\<you>\Downloads\stock_source.xlsx`
+- `C:\Users\<you>\Downloads\fcn_source.xlsx`
+
+## 5) Run data update pipeline
 
 ```bash
-sudo cp deploy/systemd/investment-dashboard-api.service /etc/systemd/system/investment-dashboard-api.service
-sudo cp deploy/systemd/investment-dashboard-web.service /etc/systemd/system/investment-dashboard-web.service
+cd /home/<your-user>/.openclaw/workspace/investment_dashboard
+bash deploy/scripts/update_data_files.sh --run-pipeline
+```
+
+## 6) Start API + ngrok (manual test)
+
+```bash
+./deploy/scripts/start_api_ngrok_stack.sh
+curl -s http://127.0.0.1:8000/health
+```
+
+Stop when needed:
+
+```bash
+./deploy/scripts/stop_api_ngrok_stack.sh
+```
+
+## 7) Install auto-start services (recommended)
+
+```bash
+sudo cp deploy/systemd/investment-dashboard-api.service /etc/systemd/system/
+sudo cp deploy/systemd/investment-dashboard-ngrok-api.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable investment-dashboard-api investment-dashboard-web
-sudo systemctl restart investment-dashboard-api investment-dashboard-web
+sudo systemctl enable --now investment-dashboard-api.service
+sudo systemctl enable --now investment-dashboard-ngrok-api.service
 ```
 
-## Verification
+Check:
 
 ```bash
-curl http://127.0.0.1:8000/health
-python -m unittest tests.test_api -v
+systemctl status investment-dashboard-api.service --no-pager
+systemctl status investment-dashboard-ngrok-api.service --no-pager
 ```
 
-For the full end-to-end flow, keep the source workbooks in place and run the bot project after the API is healthy.
+## 8) Configure Streamlit Cloud Secret
+
+Set `INVESTMENT_API_BASE_URL` to your current ngrok HTTPS URL.
+
+Example:
+
+```text
+INVESTMENT_API_BASE_URL="https://xxxx-xxxx.ngrok-free.dev"
+```
+
+If ngrok URL rotates, update secret and reboot Streamlit app.
+
+## 9) Verify end-to-end
+
+```bash
+curl -s http://127.0.0.1:8000/api/v1/investments/bonds | head
+curl -s http://127.0.0.1:8000/api/v1/investments/charts/bonds | head
+```
+
+Then verify:
+- Streamlit Cloud page loads with numbers/charts
+- Telegram `/invest` returns updated summary
+
+## 10) Push code/docs only (never data)
+
+```bash
+git add -A
+git restore --staged data/ "*.parquet" "*.xlsx" "*.xls" "*.csv" || true
+git status --short
+git commit -m "update code/docs"
+git pull --rebase origin main
+git push origin main
+```

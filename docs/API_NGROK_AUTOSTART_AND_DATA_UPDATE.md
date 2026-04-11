@@ -1,38 +1,31 @@
-# API + ngrok Auto-Start and Data Update
+# API + ngrok 自動啟動與資料更新（教育版）
 
-This guide gives you two practical workflows:
-- Auto-start API + ngrok on boot
-- Update source files and refresh dashboard data
+這份是實戰版操作說明，聚焦兩件事：
+1. API + ngrok 穩定運行
+2. 資料更新後可被雲端正確讀到
 
-## 1) One-command startup (manual)
+## A) 手動啟停（排錯優先）
 
-From WSL:
+啟動：
 
 ```bash
 cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
 ./deploy/scripts/start_api_ngrok_stack.sh
 ```
 
-What it does:
-- Stops old API/ngrok processes for port `8000`
-- Starts `uvicorn api:app --port 8000`
-- Waits for `/health`
-- Starts `ngrok http 8000`
-- Writes URL to `/tmp/investment_api_ngrok_url`
-
-Stop command:
+停止：
 
 ```bash
 ./deploy/scripts/stop_api_ngrok_stack.sh
 ```
 
-## 2) Auto-start on boot (systemd)
+你會拿到：
+- API 在 `localhost:8000`
+- ngrok 公網 URL（寫入 `/tmp/investment_api_ngrok_url`）
 
-Prerequisite:
-- WSL has systemd enabled
-- `ngrok` installed and authtoken configured in WSL
+## B) 開機自動啟動（正式使用）
 
-Install services:
+安裝服務（一次性）：
 
 ```bash
 cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
@@ -43,59 +36,59 @@ sudo systemctl enable --now investment-dashboard-api.service
 sudo systemctl enable --now investment-dashboard-ngrok-api.service
 ```
 
-Check status:
+狀態確認：
 
 ```bash
-systemctl status investment-dashboard-api --no-pager
-systemctl status investment-dashboard-ngrok-api --no-pager
+systemctl status investment-dashboard-api.service --no-pager
+systemctl status investment-dashboard-ngrok-api.service --no-pager
 ```
 
-After reboot, get ngrok URL:
+## C) Streamlit Cloud Secret 設定
+
+`INVESTMENT_API_BASE_URL` 要填「ngrok 的 https URL（不加結尾 /）」。
+
+範例：
+
+```text
+INVESTMENT_API_BASE_URL="https://xxxx-xxxx.ngrok-free.dev"
+```
+
+更換 ngrok URL 後，請更新 Secret 並 Reboot app。
+
+## D) 資料更新
 
 ```bash
-curl -s http://127.0.0.1:4040/api/tunnels
+cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
+./deploy/scripts/update_data_files.sh --run-pipeline
 ```
 
-Then set Streamlit Secret:
+預設來源：
+- `/mnt/c/Users/ericarthuang/Downloads`
 
-- `INVESTMENT_API_BASE_URL="https://<your-ngrok-domain>"`
-
-## 3) Update data source files
-
-Expected source filenames (fixed):
+固定檔名：
 - `bond_source.xlsx`
 - `stock_source.xlsx`
 - `fcn_source.xlsx`
 
-Default source folder:
-- `/mnt/c/Users/ericarthuang/Downloads`
+## E) 驗證順序（非常重要）
 
-Run copy only:
-
-```bash
-cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
-./deploy/scripts/update_data_files.sh
-```
-
-Run copy + pipeline:
-
-```bash
-./deploy/scripts/update_data_files.sh --run-pipeline
-```
-
-Use custom source folder:
-
-```bash
-./deploy/scripts/update_data_files.sh --downloads-dir "/mnt/c/Users/<you>/Downloads" --run-pipeline
-```
-
-## 4) Quick verification checklist
-
+1. API 健康：
 ```bash
 curl -s http://127.0.0.1:8000/health
+```
+
+2. 摘要 endpoint：
+```bash
+curl -s http://127.0.0.1:8000/api/v1/investments/bonds | head
+curl -s http://127.0.0.1:8000/api/v1/investments/stocks | head
+curl -s http://127.0.0.1:8000/api/v1/investments/fcn | head
+```
+
+3. 圖表 endpoint：
+```bash
 curl -s http://127.0.0.1:8000/api/v1/investments/charts/bonds | head
 curl -s http://127.0.0.1:8000/api/v1/investments/charts/stocks | head
 curl -s http://127.0.0.1:8000/api/v1/investments/charts/fcn | head
 ```
 
-If all three chart endpoints return JSON with `"available": true`, Streamlit can render charts in API mode.
+只要 chart JSON 回傳 `"available": true`，雲端圖表通常就能畫出來。

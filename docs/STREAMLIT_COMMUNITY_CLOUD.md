@@ -1,93 +1,52 @@
-# Streamlit Community Cloud 部署教學
+# Streamlit Community Cloud 部署教學（最新版）
 
-這份教學是給目前這個專案使用的。
+## 1) 部署前原則
 
-## 先準備什麼
+- GitHub 僅存程式碼與文件
+- 資料檔不上 GitHub（data/parquet/xlsx/csv）
+- Dashboard 主檔固定 `app.py`
 
-在開始之前，先確認三件事：
-
-1. 你已經有 GitHub 帳號
-2. 這個專案內容已經推上 GitHub
-3. `app.py` 可以在本機正常執行
-
-## 第一步：把專案推上 GitHub
-
-如果目前還不是 git repo，可以在 WSL 專案目錄執行：
+## 2) 第一次推版
 
 ```bash
+cd /home/ericarthuang/.openclaw/workspace/investment_dashboard
 git init
-git add .
-git commit -m "Prepare dashboard for GitHub and Streamlit Cloud"
+git add -A
+git restore --staged data/ "*.parquet" "*.xlsx" "*.xls" "*.csv" || true
+git commit -m "prepare streamlit cloud deployment"
 ```
 
-接著建立 GitHub repo，再把它 push 上去。
+然後建立 GitHub repo，push 到 `main`。
 
-## 第二步：進 Streamlit Community Cloud
+## 3) 在 Streamlit Cloud 建 app
 
-到 [Streamlit Community Cloud](https://share.streamlit.io/) 後：
-
-1. 登入帳號
-2. 連接 GitHub
-3. 點右上角 `Create app`
-
-官方說明：
-- [Deploy your app](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy)
-- [File organization](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/file-organization)
-
-## 第三步：填部署資訊
-
-建立 app 時，主要填這些：
-
-- Repository: 你的 GitHub repo
-- Branch: `main` 或你實際使用的 branch
+- Repository: 你的 repo
+- Branch: `main`
 - Main file path: `app.py`
+- Python: 建議 `3.12`
 
-如果要用固定好記的網址，也可以在建立時自訂 subdomain。
+## 4) Secrets（關鍵）
 
-## 第四步：Advanced settings
-
-Community Cloud 現在建議使用仍在支援中的 Python 版本。這個專案建議選 `Python 3.12`。
-
-如果之後有需要環境變數或 secrets，可以在這裡補。
-
-官方說明：
-- [Deploy your app](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy)
-- [App settings](https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app/app-settings)
-
-## 第五步：部署完成後要做什麼
-
-部署完成後，你會拿到一個固定網址，例如：
+至少要確認：
 
 ```text
-https://your-dashboard-name.streamlit.app
+INVESTMENT_API_BASE_URL="https://<your-ngrok-domain>"
+DASHBOARD_LINK_SECRET="<same-secret-as-telegram-side>"
 ```
 
-這時候建議馬上做兩件事：
+如果使用 Telegram 白名單驗證，也要確認對應 secret 與程式端一致。
 
-1. 打開網站，確認首頁和三個分頁都正常
-2. 把 Telegram bot 的 `INVESTMENT_DASHBOARD_URL` 改成這條固定網址
+## 5) 每次更新後怎麼驗證
 
-這樣 Telegram 裡的 `Open dashboard` 按鈕就不需要再依賴會變動的 quick tunnel。
+1. Streamlit Cloud 首頁是否可開
+2. Bonds/Stocks/FCN 三頁是否有圖表
+3. Telegram `/invest` 數字是否一致
+4. 若異常先 Reboot app
 
-## 如果之後更新畫面
+## 6) 一次性啟用提交防呆
 
-之後只要：
+```bash
+git config core.hooksPath .githooks
+```
 
-1. 改程式
-2. push 到 GitHub
-
-Streamlit Community Cloud 就會自動重新部署。
-
-官方說明：
-- [Manage your app](https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app)
-
-## 建議你第一次部署時這樣做
-
-最順的順序是：
-
-1. 先把這個 repo 推上 GitHub
-2. 先完成一次 Streamlit Community Cloud 部署
-3. 先確認網址固定可開
-4. 再回頭改 Telegram 的 dashboard 按鈕
-
-這樣可以避免一邊改 bot，一邊又遇到網址還沒固定的問題。
+這會在你 commit 前阻擋資料檔誤提交。
