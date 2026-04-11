@@ -55,8 +55,8 @@ def section_has_data(section: dict[str, object] | None) -> bool:
     lines = section.get('lines') or []
     if not isinstance(lines, list) or not lines:
         return False
-    return '尚未載入資料' not in ' '.join(str(line) for line in lines)
-
+    joined = ' '.join(str(line) for line in lines)
+    return ('\u5c1a\u672a\u8f09\u5165\u8cc7\u6599' not in joined) and ('No data loaded' not in joined)
 
 def line_value(lines: list[str], prefixes: tuple[str, ...]) -> str | None:
     for line in lines:
@@ -281,8 +281,8 @@ def main() -> None:
     if section_has_data(bond_api):
         bond_lines = bond_api.get('lines') or []
         bond_cards = [
-            metric_card('總投資額', line_value(bond_lines, ('投資金額：', '投資金額:')) or 'N/A', 'neutral'),
-            metric_card('平均收益率', line_value(bond_lines, ('平均收益率：', '平均收益率:')) or 'N/A', 'safe'),
+            metric_card('Total Investment', line_value(bond_lines, ('\u6295\u8cc7\u91d1\u984d\uff1a', '\u6295\u8cc7\u91d1\u984d:', 'Investment amount:', 'Investment amount?')) or 'N/A', 'neutral'),
+            metric_card('Average Yield', line_value(bond_lines, ('\u5e73\u5747\u6536\u76ca\u7387\uff1a', '\u5e73\u5747\u6536\u76ca\u7387:', 'Average yield:', 'Average yield?')) or 'N/A', 'safe'),
         ]
         st.markdown(module_block('債券摘要', bond_cards), unsafe_allow_html=True)
     elif not bond_df.empty:
@@ -297,8 +297,8 @@ def main() -> None:
     if section_has_data(stock_api):
         stock_lines = stock_api.get('lines') or []
         stock_cards = [
-            metric_card('投資金額', line_value(stock_lines, ('投資金額：', '投資金額:')) or 'N/A', 'neutral'),
-            metric_card('整體報酬率', line_value(stock_lines, ('整體報酬率：', '整體報酬率:')) or 'N/A', 'warn'),
+            metric_card('Investment Amount', line_value(stock_lines, ('\u6295\u8cc7\u91d1\u984d\uff1a', '\u6295\u8cc7\u91d1\u984d:', 'Investment amount:', 'Investment amount?')) or 'N/A', 'neutral'),
+            metric_card('Total Return', line_value(stock_lines, ('\u6574\u9ad4\u5831\u916c\u7387\uff1a', '\u6574\u9ad4\u5831\u916c\u7387:', 'Total return:', 'Total return?')) or 'N/A', 'warn'),
         ]
         st.markdown(module_block('股票摘要', stock_cards), unsafe_allow_html=True)
     elif not stock_df.empty:
@@ -315,10 +315,10 @@ def main() -> None:
     if section_has_data(fcn_api):
         fcn_lines = fcn_api.get('lines') or []
         fcn_cards = [
-            metric_card('總投資額', line_value(fcn_lines, ('總投資額：', '總投資額:')) or 'N/A', 'neutral'),
-            metric_card('總利息', line_value(fcn_lines, ('總利息：', '總利息:')) or 'N/A', 'warn'),
-            metric_card('未到期金額', line_value(fcn_lines, ('未到期金額：', '未到期金額:')) or 'N/A', 'safe'),
-            metric_card('未到期利息', line_value(fcn_lines, ('未到期利息：', '未到期利息:')) or 'N/A', 'warn'),
+            metric_card('Total Investment', line_value(fcn_lines, ('\u7e3d\u6295\u8cc7\u984d\uff1a', '\u7e3d\u6295\u8cc7\u984d:', 'Total investment:', 'Total investment?')) or 'N/A', 'neutral'),
+            metric_card('Total Coupon', line_value(fcn_lines, ('\u7e3d\u5229\u606f\uff1a', '\u7e3d\u5229\u606f:', 'Total coupon:', 'Total coupon?')) or 'N/A', 'warn'),
+            metric_card('Outstanding Amount', line_value(fcn_lines, ('\u672a\u5230\u671f\u91d1\u984d\uff1a', '\u672a\u5230\u671f\u91d1\u984d:', 'Outstanding amount:', 'Outstanding amount?')) or 'N/A', 'safe'),
+            metric_card('Outstanding Coupon', line_value(fcn_lines, ('\u672a\u5230\u671f\u5229\u606f\uff1a', '\u672a\u5230\u671f\u5229\u606f:', 'Outstanding coupon:', 'Outstanding coupon?')) or 'N/A', 'warn'),
         ]
         st.markdown(module_block('FCN 摘要', fcn_cards), unsafe_allow_html=True)
     elif not fcn_summary_df.empty:
