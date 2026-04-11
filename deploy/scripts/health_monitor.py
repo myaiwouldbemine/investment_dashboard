@@ -147,11 +147,12 @@ def main() -> int:
     alerts, has_failure = build_alerts(previous_state, api_ok, api_reason, ngrok_url, ngrok_reason)
 
     sent_alerts: list[str] = []
+
     for message in alerts:
-    try:
-        send_telegram_alert(message)
-    except Exception as exc:
-        print(f"[warn] telegram alert failed: {exc}")
+        try:
+            send_telegram_alert(message)
+        except Exception as exc:
+            print(f"[warn] telegram alert failed: {exc}")
 
     state = {
         "api_ok": api_ok,
