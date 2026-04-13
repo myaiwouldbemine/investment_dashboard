@@ -1,5 +1,13 @@
 # Investment Dashboard
 
+如果你想先看整個 workspace 的正式關聯圖，請先讀 [ARCHITECTURE.md](/home/ericarthuang/.openclaw/workspace/ARCHITECTURE.md:1)。
+如果你想先知道文件怎麼讀、該先看哪份，再看 [DOCUMENTS_GUIDE.md](/home/ericarthuang/.openclaw/workspace/DOCUMENTS_GUIDE.md:1)。
+
+這個專案可以先理解成兩層：
+
+- `API`：提供投資摘要與圖表資料
+- `Streamlit UI`：把資料整理成 dashboard 畫面
+
 這個專案是投資管理 Dashboard（Streamlit），模組包含：
 
 - Bonds
@@ -7,6 +15,9 @@
 - FCN
 
 Telegram 可透過 `/invest` 系列查摘要，並附上 `Open dashboard` 按鈕。
+
+這裡的 Telegram 指的是獨立的 `telegram-ai-assistant` bot，
+不是 OpenClaw gateway 裡的一般聊天 channel。
 
 ## GitHub 與資料保密原則
 
@@ -46,6 +57,12 @@ investment_dashboard/
 ```bash
 streamlit run app.py --server.port 8501
 ```
+
+如果你是第一次接手這條系統，建議用這個順序理解：
+
+1. 先看 `README_操作說明.md`，理解使用者怎麼操作
+2. 再看 `api.py`，理解 dashboard 依賴哪些資料接口
+3. 最後看 `docs/STREAMLIT_COMMUNITY_CLOUD.md`，理解部署方式
 
 ## 部署到 Streamlit Community Cloud
 
