@@ -298,7 +298,6 @@ def build_overview_summary(snapshot: InvestmentSnapshot | None = None) -> dict[s
         text_lines.extend([f'- {line}' for line in section['lines']])
         if index < len(sections) - 1:
             text_lines.append('')
-    text_lines.extend(['', 'Try: /invest bonds | /invest stocks | /invest fcn'])
     return {'title': '[Investment Overview]', 'sections': sections, 'as_of': overview_as_of, 'text': '\n'.join(text_lines)}
 
 
