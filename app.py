@@ -292,12 +292,12 @@ def main() -> None:
         bond_lines = bond_api.get('lines') or []
         bond_cards = [
             metric_card('Total Investment', line_value(bond_lines, ('\u6295\u8cc7\u91d1\u984d\uff1a', '\u6295\u8cc7\u91d1\u984d:', 'Investment amount:', 'Investment amount?')) or 'N/A', 'neutral'),
-            metric_card('Average Yield', line_value(bond_lines, ('\u5e73\u5747\u6536\u76ca\u7387\uff1a', '\u5e73\u5747\u6536\u76ca\u7387:', 'Average yield:', 'Average yield?')) or 'N/A', 'safe'),
+            metric_card('Average Yield', line_value(bond_lines, ('\u5e73\u5747\u6b96\u5229\u7387\uff1a', '\u5e73\u5747\u6b96\u5229\u7387:', '\u5e73\u5747\u6536\u76ca\u7387\uff1a', '\u5e73\u5747\u6536\u76ca\u7387:', 'Average yield:', 'Average yield?')) or 'N/A', 'safe'),
         ]
         st.markdown(module_block('Bond Summary', bond_cards), unsafe_allow_html=True)
     elif not bond_df.empty:
         bond_cards = [
-            metric_card('Total Investment', fmt_amount(bond_df['face_amount'].sum()), 'neutral'),
+            metric_card('Total Investment', fmt_amount(bond_df['settlement_amount'].sum() if 'settlement_amount' in bond_df.columns else bond_df['face_amount'].sum()), 'neutral'),
             metric_card('Average Yield', fmt_pct(bond_df['ytm'].mean()), 'safe'),
         ]
         st.markdown(module_block('Bond Summary', bond_cards), unsafe_allow_html=True)
@@ -308,7 +308,7 @@ def main() -> None:
         stock_lines = stock_api.get('lines') or []
         stock_cards = [
             metric_card('Investment Amount', line_value(stock_lines, ('\u6295\u8cc7\u91d1\u984d\uff1a', '\u6295\u8cc7\u91d1\u984d:', 'Investment amount:', 'Investment amount?')) or 'N/A', 'neutral'),
-            metric_card('Total Return', line_value(stock_lines, ('\u6574\u9ad4\u5831\u916c\u7387\uff1a', '\u6574\u9ad4\u5831\u916c\u7387:', 'Total return:', 'Total return?')) or 'N/A', 'warn'),
+            metric_card('Total Return', line_value(stock_lines, ('\u7e3d\u5831\u916c\u7387\uff1a', '\u7e3d\u5831\u916c\u7387:', '\u6574\u9ad4\u5831\u916c\u7387\uff1a', '\u6574\u9ad4\u5831\u916c\u7387:', 'Total return:', 'Total return?')) or 'N/A', 'warn'),
         ]
         st.markdown(module_block('Stock Summary', stock_cards), unsafe_allow_html=True)
     elif not stock_df.empty:
@@ -326,8 +326,8 @@ def main() -> None:
         fcn_lines = fcn_api.get('lines') or []
         fcn_cards = [
             metric_card('Total Investment', line_value(fcn_lines, ('\u7e3d\u6295\u8cc7\u984d\uff1a', '\u7e3d\u6295\u8cc7\u984d:', 'Total investment:', 'Total investment?')) or 'N/A', 'neutral'),
-            metric_card('Total Coupon', line_value(fcn_lines, ('\u7e3d\u5229\u606f\uff1a', '\u7e3d\u5229\u606f:', 'Total coupon:', 'Total coupon?')) or 'N/A', 'warn'),
-            metric_card('Outstanding Amount', line_value(fcn_lines, ('\u672a\u5230\u671f\u91d1\u984d\uff1a', '\u672a\u5230\u671f\u91d1\u984d:', 'Outstanding amount:', 'Outstanding amount?')) or 'N/A', 'safe'),
+            metric_card('Total Coupon', line_value(fcn_lines, ('\u7d2f\u8a08\u7968\u606f\uff1a', '\u7d2f\u8a08\u7968\u606f:', '\u7e3d\u5229\u606f\uff1a', '\u7e3d\u5229\u606f:', 'Total coupon:', 'Total coupon?')) or 'N/A', 'warn'),
+            metric_card('Outstanding Amount', line_value(fcn_lines, ('\u672a\u5230\u671f\u672c\u91d1\uff1a', '\u672a\u5230\u671f\u672c\u91d1:', '\u672a\u5230\u671f\u91d1\u984d\uff1a', '\u672a\u5230\u671f\u91d1\u984d:', 'Outstanding amount:', 'Outstanding amount?')) or 'N/A', 'safe'),
             metric_card('Outstanding Coupon', line_value(fcn_lines, ('\u672a\u5230\u671f\u5229\u606f\uff1a', '\u672a\u5230\u671f\u5229\u606f:', 'Outstanding coupon:', 'Outstanding coupon?')) or 'N/A', 'warn'),
         ]
         st.markdown(module_block('FCN Summary', fcn_cards), unsafe_allow_html=True)

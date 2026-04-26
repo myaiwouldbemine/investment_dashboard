@@ -153,44 +153,45 @@ if not position_path.exists():
 
         row1_left, row1_right = st.columns(2)
         with row1_left:
-            if not currency_df.empty and {'currency', 'face_amount'}.issubset(currency_df.columns):
-                chart = px.pie(currency_df, names='currency', values='face_amount', title='Currency Breakdown')
+            if not currency_df.empty and {'currency', 'settlement_amount'}.issubset(currency_df.columns):
+                chart = px.pie(currency_df, names='currency', values='settlement_amount', title='Currency Breakdown')
                 st.plotly_chart(chart, use_container_width=True)
         with row1_right:
-            if not rating_df.empty and {'rating_bucket', 'face_amount'}.issubset(rating_df.columns):
-                st.plotly_chart(amount_bar(rating_df, 'rating_bucket', 'face_amount', 'Amount by Rating', 'Blues'), use_container_width=True)
+            if not rating_df.empty and {'rating_bucket', 'settlement_amount'}.issubset(rating_df.columns):
+                st.plotly_chart(amount_bar(rating_df, 'rating_bucket', 'settlement_amount', 'Amount by Rating', 'Blues'), use_container_width=True)
 
         cp_left, cp_right = st.columns(2)
         with cp_left:
-            if not counterparty_df.empty and {'counterparty', 'face_amount'}.issubset(counterparty_df.columns):
-                st.plotly_chart(amount_bar(counterparty_df, 'counterparty', 'face_amount', 'Counterparty Amount', 'Sunset'), use_container_width=True)
+            if not counterparty_df.empty and {'counterparty', 'settlement_amount'}.issubset(counterparty_df.columns):
+                st.plotly_chart(amount_bar(counterparty_df, 'counterparty', 'settlement_amount', 'Counterparty Amount', 'Sunset'), use_container_width=True)
         with cp_right:
             if not counterparty_df.empty and {'counterparty', 'weight'}.issubset(counterparty_df.columns):
                 st.plotly_chart(weight_bar(counterparty_df, 'counterparty', 'weight', 'Counterparty Weight', 'Sunset'), use_container_width=True)
 
         tp_left, tp_right = st.columns(2)
         with tp_left:
-            if not bond_type_df.empty and {'bond_type', 'face_amount'}.issubset(bond_type_df.columns):
-                st.plotly_chart(amount_bar(bond_type_df, 'bond_type', 'face_amount', 'Amount by Bond Type', 'Purples'), use_container_width=True)
+            if not bond_type_df.empty and {'bond_type', 'settlement_amount'}.issubset(bond_type_df.columns):
+                st.plotly_chart(amount_bar(bond_type_df, 'bond_type', 'settlement_amount', 'Amount by Bond Type', 'Purples'), use_container_width=True)
         with tp_right:
             if not bond_type_df.empty and {'bond_type', 'weight'}.issubset(bond_type_df.columns):
                 st.plotly_chart(weight_bar(bond_type_df, 'bond_type', 'weight', 'Weight by Bond Type', 'Purples'), use_container_width=True)
 
         yr_left, yr_right = st.columns(2)
         with yr_left:
-            if not maturity_df.empty and {'maturity_year', 'face_amount'}.issubset(maturity_df.columns):
-                st.plotly_chart(amount_bar(maturity_df, 'maturity_year', 'face_amount', 'Amount by Maturity Year', 'Oranges'), use_container_width=True)
+            if not maturity_df.empty and {'maturity_year', 'settlement_amount'}.issubset(maturity_df.columns):
+                st.plotly_chart(amount_bar(maturity_df, 'maturity_year', 'settlement_amount', 'Amount by Maturity Year', 'Oranges'), use_container_width=True)
         with yr_right:
-            if not cashflow_df.empty and {'cashflow_year', 'total_payback', 'cashflow_type'}.issubset(cashflow_df.columns):
-                cashflow_df['cashflow_label'] = cashflow_df['cashflow_type'].map(CASHFLOW_TYPE_LABELS).fillna(cashflow_df['cashflow_type'])
-                flow_df = cashflow_df.sort_values(['cashflow_year', 'cashflow_month']) if 'cashflow_month' in cashflow_df.columns else cashflow_df.sort_values('cashflow_year')
-                chart = px.bar(flow_df, x='cashflow_year', y='total_payback', color='cashflow_label', barmode='group', title='Cashflow by Year', text='total_payback')
+            if not cashflow_df.empty and {'cashflow_year', 'total_payback'}.issubset(cashflow_df.columns):
+                flow_df = cashflow_df.groupby('cashflow_year', dropna=False)['total_payback'].sum().reset_index().sort_values('cashflow_year')
+                chart = px.bar(flow_df, x='cashflow_year', y='total_payback', title='Cashflow by Year', text='total_payback')
+                chart.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+                chart.update_layout(xaxis_title='Year', yaxis_title='Amount', yaxis_tickformat=',.0f')
                 st.plotly_chart(chart, use_container_width=True)
 
         cm_left, cm_right = st.columns(2)
         with cm_left:
-            if not company_df.empty and {'company_code', 'face_amount'}.issubset(company_df.columns):
-                st.plotly_chart(amount_bar(company_df, 'company_code', 'face_amount', 'Amount by Company', 'Teal'), use_container_width=True)
+            if not company_df.empty and {'company_code', 'settlement_amount'}.issubset(company_df.columns):
+                st.plotly_chart(amount_bar(company_df, 'company_code', 'settlement_amount', 'Amount by Company', 'Teal'), use_container_width=True)
         with cm_right:
             if not company_df.empty and {'company_code', 'weight'}.issubset(company_df.columns):
                 st.plotly_chart(weight_bar(company_df, 'company_code', 'weight', 'Weight by Company', 'Greens'), use_container_width=True)
@@ -241,50 +242,61 @@ filtered = position_df[
 
 st.subheader('Overview')
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric('Investment Amount', fmt_amount(filtered['face_amount'].sum()))
-c2.metric('Average Yield', fmt_pct(filtered['ytm'].mean()) if not filtered['ytm'].dropna().empty else 'N/A')
-c3.metric('Average Duration', fmt_num(filtered['duration_years'].mean()) if not filtered['duration_years'].dropna().empty else 'N/A')
+_settlement_sum = filtered['settlement_amount'].sum()
+_cash_total_sum = filtered['cash_total'].sum() if 'cash_total' in filtered.columns else None
+_w = filtered['settlement_amount'].sum() if 'settlement_amount' in filtered.columns else 0
+_avg_duration = ((filtered['duration_years'] * filtered['settlement_amount']).sum() / _w) if _w else (filtered['duration_years'].mean() if not filtered['duration_years'].dropna().empty else None)
+if _cash_total_sum and _cash_total_sum > 0 and _settlement_sum > 0 and _avg_duration and pd.notna(_avg_duration) and _avg_duration > 0:
+    _avg_ytm = fmt_pct((_cash_total_sum - _settlement_sum) / _settlement_sum / _avg_duration)
+else:
+    _avg_ytm = fmt_pct(filtered['ytm'].mean()) if not filtered['ytm'].dropna().empty else 'N/A'
+c1.metric('Investment Amount', fmt_amount(_settlement_sum))
+c2.metric('Average Yield', _avg_ytm)
+c3.metric('Average Duration', fmt_num(_avg_duration) if _avg_duration is not None else 'N/A')
 c4.metric('Issuer Count', int(filtered['issuer_name'].nunique()))
 c5.metric('Positions', int(len(filtered)))
 
 row1_left, row1_right = st.columns(2)
 with row1_left:
-    st.plotly_chart(px.pie(filtered, names='currency', values='face_amount', title='Currency Breakdown'), use_container_width=True)
+    st.plotly_chart(px.pie(filtered, names='currency', values='settlement_amount', title='Currency Breakdown'), use_container_width=True)
 with row1_right:
-    rating_df = filtered.groupby('rating_bucket', dropna=False)['face_amount'].sum().reset_index().sort_values('face_amount', ascending=False)
-    st.plotly_chart(amount_bar(rating_df, 'rating_bucket', 'face_amount', 'Amount by Rating', 'Blues'), use_container_width=True)
+    rating_df = filtered.groupby('rating_bucket', dropna=False)['settlement_amount'].sum().reset_index().sort_values('settlement_amount', ascending=False)
+    st.plotly_chart(amount_bar(rating_df, 'rating_bucket', 'settlement_amount', 'Amount by Rating', 'Blues'), use_container_width=True)
 
-counterparty_df = filtered.groupby('counterparty', dropna=False)['face_amount'].sum().reset_index().sort_values('face_amount', ascending=False)
-counterparty_df['weight'] = counterparty_df['face_amount'] / counterparty_df['face_amount'].sum() if counterparty_df['face_amount'].sum() else 0
+counterparty_df = filtered.groupby('counterparty', dropna=False)['settlement_amount'].sum().reset_index().sort_values('settlement_amount', ascending=False)
+counterparty_df['weight'] = counterparty_df['settlement_amount'] / counterparty_df['settlement_amount'].sum() if counterparty_df['settlement_amount'].sum() else 0
 cp_left, cp_right = st.columns(2)
 with cp_left:
-    st.plotly_chart(amount_bar(counterparty_df, 'counterparty', 'face_amount', 'Counterparty Amount', 'Sunset'), use_container_width=True)
+    st.plotly_chart(amount_bar(counterparty_df, 'counterparty', 'settlement_amount', 'Counterparty Amount', 'Sunset'), use_container_width=True)
 with cp_right:
     st.plotly_chart(weight_bar(counterparty_df, 'counterparty', 'weight', 'Counterparty Weight', 'Sunset'), use_container_width=True)
 
-bond_type_df = filtered.groupby('bond_type', dropna=False)['face_amount'].sum().reset_index().sort_values('face_amount', ascending=False)
-bond_type_df['weight'] = bond_type_df['face_amount'] / bond_type_df['face_amount'].sum() if bond_type_df['face_amount'].sum() else 0
+bond_type_df = filtered.groupby('bond_type', dropna=False)['settlement_amount'].sum().reset_index().sort_values('settlement_amount', ascending=False)
+bond_type_df['weight'] = bond_type_df['settlement_amount'] / bond_type_df['settlement_amount'].sum() if bond_type_df['settlement_amount'].sum() else 0
 tp_left, tp_right = st.columns(2)
 with tp_left:
-    st.plotly_chart(amount_bar(bond_type_df, 'bond_type', 'face_amount', 'Amount by Bond Type', 'Purples'), use_container_width=True)
+    st.plotly_chart(amount_bar(bond_type_df, 'bond_type', 'settlement_amount', 'Amount by Bond Type', 'Purples'), use_container_width=True)
 with tp_right:
     st.plotly_chart(weight_bar(bond_type_df, 'bond_type', 'weight', 'Weight by Bond Type', 'Purples'), use_container_width=True)
 
 yr_left, yr_right = st.columns(2)
 with yr_left:
-    maturity_df = filtered.groupby('maturity_year', dropna=False)['face_amount'].sum().reset_index().sort_values('maturity_year')
-    st.plotly_chart(amount_bar(maturity_df, 'maturity_year', 'face_amount', 'Amount by Maturity Year', 'Oranges'), use_container_width=True)
+    maturity_df = filtered.groupby('maturity_year', dropna=False)['settlement_amount'].sum().reset_index().sort_values('maturity_year')
+    st.plotly_chart(amount_bar(maturity_df, 'maturity_year', 'settlement_amount', 'Amount by Maturity Year', 'Oranges'), use_container_width=True)
 with yr_right:
     if not cashflow_df.empty:
-        flow_df = cashflow_df.sort_values(['cashflow_year', 'cashflow_month'])
-        st.plotly_chart(px.bar(flow_df, x='cashflow_year', y='total_payback', color='cashflow_label', barmode='group', title='Cashflow by Year', text='total_payback'), use_container_width=True)
+        flow_df = cashflow_df.groupby('cashflow_year', dropna=False)['total_payback'].sum().reset_index().sort_values('cashflow_year')
+        cf_chart = px.bar(flow_df, x='cashflow_year', y='total_payback', title='Cashflow by Year', text='total_payback')
+        cf_chart.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+        cf_chart.update_layout(xaxis_title='Year', yaxis_title='Amount', yaxis_tickformat=',.0f')
+        st.plotly_chart(cf_chart, use_container_width=True)
 
-company_df = filtered.groupby('company_code', dropna=False)['face_amount'].sum().reset_index()
-company_df['weight'] = company_df['face_amount'] / company_df['face_amount'].sum() if company_df['face_amount'].sum() else 0
-company_df = company_df.sort_values('face_amount', ascending=False)
+company_df = filtered.groupby('company_code', dropna=False)['settlement_amount'].sum().reset_index()
+company_df['weight'] = company_df['settlement_amount'] / company_df['settlement_amount'].sum() if company_df['settlement_amount'].sum() else 0
+company_df = company_df.sort_values('settlement_amount', ascending=False)
 cm_left, cm_right = st.columns(2)
 with cm_left:
-    st.plotly_chart(amount_bar(company_df, 'company_code', 'face_amount', 'Amount by Company', 'Teal'), use_container_width=True)
+    st.plotly_chart(amount_bar(company_df, 'company_code', 'settlement_amount', 'Amount by Company', 'Teal'), use_container_width=True)
 with cm_right:
     st.plotly_chart(weight_bar(company_df, 'company_code', 'weight', 'Weight by Company', 'Greens'), use_container_width=True)
 
