@@ -39,7 +39,11 @@ def standardize_fcn_positions(frame: pd.DataFrame) -> pd.DataFrame:
     output['coupon_rate_pct'] = output['coupon_rate'] * 100
     output['strike_buffer_pct'] = (output['spot_price'] / output['strike_price'] - 1).where(output['strike_price'].notna())
     output['days_to_maturity'] = (output['maturity_date'] - pd.Timestamp.today().normalize()).dt.days
-    output['status_group'] = output['status'].fillna('未分類').replace({'已到期': '已到期', '未到期': '未到期'})
+    _today = pd.Timestamp.today().normalize()
+    output['status_group'] = output['maturity_date'].apply(
+        lambda d: '已到期' if pd.notna(d) and d.normalize() < _today
+                  else ('未到期' if pd.notna(d) else '未分類')
+    )
     keep = [
         'company_code', 'isin', 'issuer', 'underlying', 'tenor_months', 'coupon_rate', 'coupon_rate_pct',
         'put_strike_pct', 'spot_price', 'strike_price', 'strike_buffer_pct', 'trade_date', 'settlement_date',
